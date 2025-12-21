@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: schafkopf-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-schafkopf}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schafkopf_password}
+      POSTGRES_DB: ${POSTGRES_DB:-schafkopf}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-schafkopf}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - schafkopf-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: schafkopf-backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-schafkopf}:${POSTGRES_PASSWORD:-schafkopf_password}@db:5432/${POSTGRES_DB:-schafkopf}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - schafkopf-network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: schafkopf-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      - backend
+    networks:
+      - schafkopf-network
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+
+volumes:
+  postgres_data:
+
+networks:
+  schafkopf-network:
+    driver: bridge
+

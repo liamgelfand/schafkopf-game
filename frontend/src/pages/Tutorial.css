@@ -1,0 +1,121 @@
+.tutorial {
+  min-height: 100vh;
+  padding: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+.tutorial-container {
+  max-width: 900px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 2rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.tutorial h1 {
+  color: #667eea;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.tutorial-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.tutorial-section:last-of-type {
+  border-bottom: none;
+}
+
+.tutorial-section h2 {
+  color: #667eea;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.tutorial-section h3 {
+  color: #764ba2;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.tutorial-section p {
+  line-height: 1.6;
+  color: #333;
+  margin-bottom: 0.75rem;
+}
+
+.tutorial-section ul,
+.tutorial-section ol {
+  margin-left: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.8;
+}
+
+.tutorial-section li {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.contract-explanation {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border-left: 4px solid #667eea;
+}
+
+.contract-explanation h3 {
+  margin-top: 0;
+}
+
+.tutorial-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 2px solid #eee;
+}
+
+.tutorial-button {
+  display: block;
+  width: 100%;
+  padding: 1.2rem 2.5rem;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #2c3e50 !important;
+  text-decoration: none;
+  border-radius: 12px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tutorial-button:hover {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  border-color: rgba(102, 126, 234, 0.3);
+  color: #2c3e50 !important;
+}
+
+.tutorial-button.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white !important;
+  border-color: transparent;
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.tutorial-button.primary:hover {
+  background: linear-gradient(135deg, #5568d3 0%, #6a1b9a 100%);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.5);
+  transform: translateY(-3px);
+  color: white !important;
+}
+
