@@ -40,7 +40,7 @@ docker-compose up -d
 
 Access at http://localhost:3000
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
+See below for detailed instructions.
 
 ### Option 2: Quick Local Development (SQLite)
 
@@ -60,7 +60,7 @@ npm install
 npm run dev
 ```
 
-See [QUICKSTART.md](QUICKSTART.md) for all options.
+See below for all options.
 
 ### Manual Setup (Advanced)
 
@@ -145,6 +145,35 @@ See the in-game tutorial for complete rules. Key points:
 - **Backend:** Python 3.11+, FastAPI, WebSockets
 - **Mobile:** React Native (planned)
 - **Database:** SQLite/PostgreSQL (for stats)
+
+## Testing
+
+### Backend Tests
+
+```bash
+cd backend
+pip install -r requirements-test.txt
+pytest tests/ -v -m "not e2e_docker"  # Fast tests (no Docker)
+pytest tests/test_e2e_docker.py -v -m e2e_docker  # E2E tests (requires Docker)
+```
+
+### Frontend Tests
+
+```bash
+cd frontend
+npm install
+npm test -- --run
+```
+
+### Using Makefile
+
+```bash
+make test              # Run all backend tests (no Docker)
+make test-e2e-docker   # Run E2E Docker tests
+make test-frontend     # Run frontend tests
+make test-all          # Run all tests including Docker E2E
+make help              # See all available commands
+```
 
 ## License
 
