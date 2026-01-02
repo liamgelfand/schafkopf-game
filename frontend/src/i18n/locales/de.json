@@ -1,0 +1,72 @@
+{
+  "common": {
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "logout": "Abmelden",
+    "settings": "Einstellungen",
+    "profile": "Profil",
+    "dashboard": "Dashboard",
+    "tutorial": "Anleitung",
+    "stats": "Statistiken",
+    "createGame": "Neues Spiel erstellen",
+    "joinGame": "Spiel beitreten",
+    "ready": "Bereit",
+    "notReady": "Nicht bereit",
+    "pass": "Pass",
+    "bid": "Bieten",
+    "makeBid": "Bieten",
+    "yourTurn": "Ihr Zug",
+    "waiting": "Warten..."
+  },
+  "game": {
+    "title": "Schafkopf",
+    "connecting": "Verbinde mit Spiel...",
+    "loading": "Lade Spiel...",
+    "yourHand": "Ihre Hand",
+    "chooseBid": "Wählen Sie Ihr Gebot",
+    "makeYourBid": "Geben Sie Ihr Gebot ab",
+    "yourTurnToBid": "Sie sind am Zug zum Bieten",
+    "turnToBid": "{{name}} ist am Zug",
+    "highestBid": "Höchstes: {{contract}}",
+    "passes": "Pässe: {{count}}/3",
+    "contract": "Kontrakt: {{contract}}",
+    "trick": "Stich {{current}}/8",
+    "noCardsPlayed": "Noch keine Karten gespielt",
+    "contracts": {
+      "rufer": "Rufer",
+      "wenz": "Wenz",
+      "solo": "Solo"
+    },
+    "suits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    }
+  },
+  "lobby": {
+    "title": "Spiel-Lobby",
+    "players": "Spieler",
+    "waitingForPlayers": "Warten auf Spieler...",
+    "allReady": "Alle Spieler bereit!",
+    "gameStarting": "Spiel startet..."
+  },
+  "dashboard": {
+    "title": "Willkommen bei Schafkopf!",
+    "quickActions": "Schnellaktionen",
+    "activeLobbies": "Aktive Lobbys",
+    "noLobbies": "Keine aktiven Lobbys. Erstellen Sie eines!",
+    "refresh": "Lobbys aktualisieren",
+    "yourGame": "Ihr Spiel"
+  },
+  "errors": {
+    "notLoggedIn": "Nicht angemeldet",
+    "gameNotFound": "Spiel nicht gefunden",
+    "notYourTurn": "Nicht Ihr Zug",
+    "invalidBid": "Ungültiges Gebot",
+    "bidTooLow": "Ihr Gebot ist zu niedrig",
+    "cannotPass": "Kann nicht passen"
+  }
+}
+
+

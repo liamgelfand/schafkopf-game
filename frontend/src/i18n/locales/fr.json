@@ -1,0 +1,72 @@
+{
+  "common": {
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "logout": "Déconnexion",
+    "settings": "Paramètres",
+    "profile": "Profil",
+    "dashboard": "Tableau de bord",
+    "tutorial": "Tutoriel",
+    "stats": "Statistiques",
+    "createGame": "Créer une nouvelle partie",
+    "joinGame": "Rejoindre une partie",
+    "ready": "Prêt",
+    "notReady": "Pas prêt",
+    "pass": "Passer",
+    "bid": "Enchérir",
+    "makeBid": "Faire une enchère",
+    "yourTurn": "Votre tour",
+    "waiting": "En attente..."
+  },
+  "game": {
+    "title": "Schafkopf",
+    "connecting": "Connexion au jeu...",
+    "loading": "Chargement du jeu...",
+    "yourHand": "Votre main",
+    "chooseBid": "Choisissez votre enchère",
+    "makeYourBid": "Faites votre enchère",
+    "yourTurnToBid": "C'est à vous d'enchérir",
+    "turnToBid": "Tour de {{name}}",
+    "highestBid": "Plus haute: {{contract}}",
+    "passes": "Passes: {{count}}/3",
+    "contract": "Contrat: {{contract}}",
+    "trick": "Plis {{current}}/8",
+    "noCardsPlayed": "Aucune carte jouée",
+    "contracts": {
+      "rufer": "Rufer",
+      "wenz": "Wenz",
+      "solo": "Solo"
+    },
+    "suits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    }
+  },
+  "lobby": {
+    "title": "Lobby de jeu",
+    "players": "Joueurs",
+    "waitingForPlayers": "En attente de joueurs...",
+    "allReady": "Tous les joueurs sont prêts!",
+    "gameStarting": "Démarrage du jeu..."
+  },
+  "dashboard": {
+    "title": "Bienvenue à Schafkopf!",
+    "quickActions": "Actions rapides",
+    "activeLobbies": "Lobbys actifs",
+    "noLobbies": "Aucun lobby actif. Créez-en un!",
+    "refresh": "Actualiser les lobbys",
+    "yourGame": "Votre jeu"
+  },
+  "errors": {
+    "notLoggedIn": "Non connecté",
+    "gameNotFound": "Jeu non trouvé",
+    "notYourTurn": "Ce n'est pas votre tour",
+    "invalidBid": "Enchère invalide",
+    "bidTooLow": "Votre enchère est trop basse",
+    "cannotPass": "Impossible de passer"
+  }
+}
+
+

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createRoom, listRooms, joinRoom, setReady, startGame, getRoom } from '../game/api'
+import { createRoom, listRooms, joinRoom, setReady, startGame, getRoom, leaveRoom as leaveRoomAPI } from '../game/api'
 import './Lobby.css'
 
 interface Player {
@@ -18,9 +18,16 @@ interface GameRoom {
   created_at: string
 }
 
+interface CurrentUser {
+  id: number
+  username: string
+  email: string
+}
+
 function Lobby() {
   const [rooms, setRooms] = useState<GameRoom[]>([])
   const [currentRoom, setCurrentRoom] = useState<GameRoom | null>(null)
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -32,16 +39,62 @@ function Lobby() {
       return
     }
 
+    loadCurrentUser()
     loadRooms()
     
-    // Poll for room updates if in a room
-    if (currentRoom) {
-      const interval = setInterval(() => {
-        refreshRoom()
-      }, 2000)
-      return () => clearInterval(interval)
+    // Check if we have a room ID in URL params
+    const urlParams = new URLSearchParams(window.location.search)
+    const roomId = urlParams.get('room')
+    if (roomId && !currentRoom) {
+      // Try to join or get the room
+      joinRoomHandler(roomId).catch(err => {
+        console.log('Room join result:', err)
+      })
     }
-  }, [currentRoom])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Separate effect for polling when in a room
+  useEffect(() => {
+    if (!currentRoom) return
+    
+    const interval = setInterval(() => {
+      refreshRoom()
+    }, 2000)
+    
+    return () => clearInterval(interval)
+  }, [currentRoom?.id]) // Only depend on room ID, not the whole object
+
+  // Auto-navigate to game when it starts
+  useEffect(() => {
+    if (currentRoom && currentRoom.status === 'in_progress') {
+      navigate(`/game?room=${currentRoom.id}`)
+    }
+  }, [currentRoom?.status, currentRoom?.id, navigate])
+
+  const loadCurrentUser = async () => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+
+    try {
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const userData = await response.json()
+        setCurrentUser({
+          id: userData.id,
+          username: userData.username,
+          email: userData.email
+        })
+      }
+    } catch (err) {
+      console.error('Failed to load current user:', err)
+    }
+  }
 
   const loadRooms = async () => {
     try {
@@ -57,14 +110,28 @@ function Lobby() {
     if (!currentRoom) return
     try {
       const room = await getRoom(currentRoom.id)
+      
+      // If room was deleted or doesn't exist, clear local state
+      if (!room) {
+        setCurrentRoom(null)
+        await loadRooms()
+        return
+      }
+      
       setCurrentRoom(room)
       
       // If game started, navigate to game
       if (room.status === 'in_progress') {
         navigate(`/game?room=${room.id}`)
       }
-    } catch (err) {
-      console.error('Failed to refresh room:', err)
+    } catch (err: any) {
+      // If room was deleted, clear local state
+      if (err.message?.includes('404') || err.message?.includes('not found')) {
+        setCurrentRoom(null)
+        await loadRooms()
+      } else {
+        console.error('Failed to refresh room:', err)
+      }
     }
   }
 
@@ -95,24 +162,35 @@ function Lobby() {
       const room = await joinRoom(roomId)
       setCurrentRoom(room)
       await loadRooms()
+      // Refresh room state after joining
+      setTimeout(() => refreshRoom(), 500)
     } catch (err: any) {
-      setError(err.message || 'Failed to join room')
+      if (err.message?.includes('already')) {
+        // If already in room, just fetch the room state
+        const room = await getRoom(roomId)
+        setCurrentRoom(room)
+      } else {
+        setError(err.message || 'Failed to join room')
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const toggleReady = async () => {
-    if (!currentRoom) return
+    if (!currentRoom || !currentUser) return
     
-    const currentUser = JSON.parse(atob(localStorage.getItem('token')!.split('.')[1]))
-    const isReady = currentRoom.players.find(p => p.user_id.toString() === currentUser.sub)?.ready || false
+    const isReady = currentRoom.players.find(p => p.user_id === currentUser.id)?.ready || false
     
     try {
       const room = await setReady(currentRoom.id, !isReady)
       setCurrentRoom(room)
+      // Also refresh rooms list to update other players' views
+      await loadRooms()
     } catch (err: any) {
       setError(err.message || 'Failed to set ready')
+      // Refresh room state on error
+      refreshRoom()
     }
   }
 
@@ -121,7 +199,7 @@ function Lobby() {
     
     setLoading(true)
     try {
-      const result = await startGame(currentRoom.id)
+      await startGame(currentRoom.id)
       navigate(`/game?room=${currentRoom.id}`)
     } catch (err: any) {
       setError(err.message || 'Failed to start game')
@@ -133,22 +211,28 @@ function Lobby() {
   const leaveRoom = async () => {
     if (!currentRoom) return
     
+    setLoading(true)
     try {
-      // TODO: Call leave API
+      await leaveRoomAPI(currentRoom.id)
       setCurrentRoom(null)
       await loadRooms()
     } catch (err: any) {
-      setError(err.message || 'Failed to leave room')
+      // If room was deleted or doesn't exist, just clear local state
+      if (err.message?.includes('404') || err.message?.includes('not found')) {
+        setCurrentRoom(null)
+        await loadRooms()
+      } else {
+        setError(err.message || 'Failed to leave room')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
   if (currentRoom) {
-    const currentUser = localStorage.getItem('token') 
-      ? JSON.parse(atob(localStorage.getItem('token')!.split('.')[1]))
-      : null
-    const isCreator = currentUser && currentRoom.creator_id.toString() === currentUser.sub
+    const isCreator = currentUser && currentRoom.creator_id === currentUser.id
     const currentPlayer = currentRoom.players.find(p => 
-      currentUser && p.user_id.toString() === currentUser.sub
+      currentUser && p.user_id === currentUser.id
     )
     const allReady = currentRoom.players.length === currentRoom.max_players && 
                      currentRoom.players.every(p => p.ready)
@@ -165,7 +249,11 @@ function Lobby() {
               {currentRoom.players.map((player) => (
                 <div key={player.user_id} className="player-item">
                   <span>{player.username}</span>
-                  {player.ready && <span className="ready-badge">Ready</span>}
+                  {player.ready ? (
+                    <span className="ready-badge">Ready</span>
+                  ) : (
+                    <span className="not-ready-badge">Not Ready</span>
+                  )}
                 </div>
               ))}
               {Array.from({ length: currentRoom.max_players - currentRoom.players.length }).map((_, i) => (
@@ -174,6 +262,15 @@ function Lobby() {
                 </div>
               ))}
             </div>
+            {/* Debug info - remove in production */}
+            {import.meta.env.MODE === 'development' && (
+              <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
+                Debug: Creator ID: {currentRoom.creator_id}, Your ID: {currentUser?.id}, 
+                Is Creator: {isCreator ? 'Yes' : 'No'}, 
+                All Ready: {allReady ? 'Yes' : 'No'} 
+                ({currentRoom.players.filter(p => p.ready).length}/{currentRoom.players.length} ready)
+              </div>
+            )}
           </div>
 
           <div className="room-actions">
@@ -212,7 +309,7 @@ function Lobby() {
         <h1>Game Lobby</h1>
         <p>Join or create a game room</p>
         
-        <button onClick={createRoom} className="create-room-button" disabled={loading}>
+        <button onClick={createRoomHandler} className="create-room-button" disabled={loading}>
           {loading ? 'Creating...' : 'Create New Room'}
         </button>
 

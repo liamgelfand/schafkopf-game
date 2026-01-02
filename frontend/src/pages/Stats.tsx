@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import './Stats.css'
 
 interface GameHistory {
@@ -25,7 +25,6 @@ function Stats() {
   const [stats, setStats] = useState<PlayerStats | null>(null)
   const [history, setHistory] = useState<GameHistory[]>([])
   const [loading, setLoading] = useState(true)
-  const navigate = useNavigate()
 
   useEffect(() => {
     loadStats()
@@ -175,7 +174,9 @@ function Stats() {
                     <span>{game.points} points</span>
                     {game.schneider && <span className="badge schneider">Schneider</span>}
                     {game.schwarz && <span className="badge schwarz">Schwarz</span>}
-                    <span className="history-date">{game.date}</span>
+                    <span className="history-date">
+                      {game.date ? new Date(game.date).toLocaleDateString() : ''}
+                    </span>
                   </div>
                 </div>
               ))}

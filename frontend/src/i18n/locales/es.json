@@ -1,0 +1,72 @@
+{
+  "common": {
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "logout": "Cerrar sesión",
+    "settings": "Configuración",
+    "profile": "Perfil",
+    "dashboard": "Panel de control",
+    "tutorial": "Tutorial",
+    "stats": "Estadísticas",
+    "createGame": "Crear nuevo juego",
+    "joinGame": "Unirse al juego",
+    "ready": "Listo",
+    "notReady": "No listo",
+    "pass": "Pasar",
+    "bid": "Pujar",
+    "makeBid": "Hacer puja",
+    "yourTurn": "Tu turno",
+    "waiting": "Esperando..."
+  },
+  "game": {
+    "title": "Schafkopf",
+    "connecting": "Conectando al juego...",
+    "loading": "Cargando juego...",
+    "yourHand": "Tu mano",
+    "chooseBid": "Elige tu puja",
+    "makeYourBid": "Haz tu puja",
+    "yourTurnToBid": "Es tu turno de pujar",
+    "turnToBid": "Turno de {{name}}",
+    "highestBid": "Más alta: {{contract}}",
+    "passes": "Pases: {{count}}/3",
+    "contract": "Contrato: {{contract}}",
+    "trick": "Baza {{current}}/8",
+    "noCardsPlayed": "Aún no se han jugado cartas",
+    "contracts": {
+      "rufer": "Rufer",
+      "wenz": "Wenz",
+      "solo": "Solo"
+    },
+    "suits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    }
+  },
+  "lobby": {
+    "title": "Sala de juego",
+    "players": "Jugadores",
+    "waitingForPlayers": "Esperando jugadores...",
+    "allReady": "¡Todos los jugadores listos!",
+    "gameStarting": "Iniciando juego..."
+  },
+  "dashboard": {
+    "title": "¡Bienvenido a Schafkopf!",
+    "quickActions": "Acciones rápidas",
+    "activeLobbies": "Salas activas",
+    "noLobbies": "No hay salas activas. ¡Crea una!",
+    "refresh": "Actualizar salas",
+    "yourGame": "Tu juego"
+  },
+  "errors": {
+    "notLoggedIn": "No has iniciado sesión",
+    "gameNotFound": "Juego no encontrado",
+    "notYourTurn": "No es tu turno",
+    "invalidBid": "Puja inválida",
+    "bidTooLow": "Tu puja es demasiado baja",
+    "cannotPass": "No se puede pasar"
+  }
+}
+
+

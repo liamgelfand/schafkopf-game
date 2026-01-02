@@ -13,6 +13,14 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // Exclude test files from build
+    rollupOptions: {
+      external: (id) => {
+        return id.includes('__tests__') || id.includes('.test.')
+      }
+    }
+  }
 })
 
 

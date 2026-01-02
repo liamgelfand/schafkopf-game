@@ -3,12 +3,12 @@
 export class GameWebSocket {
   private ws: WebSocket | null = null
   private gameId: string
-  private userId: string
   private onMessageCallback?: (message: any) => void
 
   constructor(gameId: string, userId: string) {
     this.gameId = gameId
-    this.userId = userId
+    // userId stored for potential future use
+    void userId
   }
 
   connect(onMessage: (message: any) => void) {
@@ -21,9 +21,11 @@ export class GameWebSocket {
     this.ws = new WebSocket(wsUrl)
     
     this.ws.onopen = () => {
-      console.log('WebSocket connected')
-      // Request initial game state
-      this.send({ type: 'get_state' })
+      console.log('WebSocket connected, requesting initial game state')
+      // Request initial game state after a small delay to ensure backend is ready
+      setTimeout(() => {
+        this.send({ type: 'get_state' })
+      }, 100)
     }
     
     this.ws.onmessage = (event) => {
@@ -67,6 +69,12 @@ export class GameWebSocket {
       contract,
       trump_suit: trumpSuit,
       called_ace: calledAce
+    })
+  }
+
+  getState() {
+    this.send({
+      type: 'get_state'
     })
   }
 

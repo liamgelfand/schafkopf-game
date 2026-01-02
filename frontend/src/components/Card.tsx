@@ -1,5 +1,4 @@
 import { Card as CardType } from '../game/types'
-import SuitIcon from './SuitIcon'
 import './Card.css'
 
 interface CardProps {
@@ -21,6 +20,13 @@ function Card({ card, onClick, disabled = false, selected = false }: CardProps) 
     Seven: '7',
   }
 
+  const suitNames: Record<string, string> = {
+    Eichel: 'Eichel',
+    Gras: 'Gras',
+    Herz: 'Herz',
+    Schellen: 'Schellen'
+  }
+
   const isRed = card.suit === 'Herz' || card.suit === 'Schellen'
 
   return (
@@ -28,23 +34,12 @@ function Card({ card, onClick, disabled = false, selected = false }: CardProps) 
       className={`card ${disabled ? 'disabled' : ''} ${selected ? 'selected' : ''} ${isRed ? 'red-suit' : 'black-suit'}`}
       onClick={disabled ? undefined : onClick}
     >
-      <div className="card-corner card-corner-top">
+      <div className="card-content">
         <div className="card-rank">{rankDisplay[card.rank]}</div>
-        <SuitIcon suit={card.suit} size="small" />
+        <div className="card-suit">{suitNames[card.suit]}</div>
       </div>
-      <div className="card-center">
-        <SuitIcon suit={card.suit} size="large" />
-      </div>
-      <div className="card-corner card-corner-bottom">
-        <div className="card-rank">{rankDisplay[card.rank]}</div>
-        <SuitIcon suit={card.suit} size="small" />
-      </div>
-      {card.value > 0 && (
-        <div className="card-points">{card.value}</div>
-      )}
     </div>
   )
 }
 
 export default Card
-

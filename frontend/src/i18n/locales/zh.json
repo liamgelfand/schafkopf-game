@@ -1,0 +1,72 @@
+{
+  "common": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "登出",
+    "settings": "设置",
+    "profile": "个人资料",
+    "dashboard": "仪表板",
+    "tutorial": "教程",
+    "stats": "统计",
+    "createGame": "创建新游戏",
+    "joinGame": "加入游戏",
+    "ready": "准备",
+    "notReady": "未准备",
+    "pass": "过",
+    "bid": "叫牌",
+    "makeBid": "叫牌",
+    "yourTurn": "您的回合",
+    "waiting": "等待中..."
+  },
+  "game": {
+    "title": "Schafkopf",
+    "connecting": "正在连接游戏...",
+    "loading": "正在加载游戏...",
+    "yourHand": "您的手牌",
+    "chooseBid": "选择您的叫牌",
+    "makeYourBid": "进行叫牌",
+    "yourTurnToBid": "轮到您叫牌",
+    "turnToBid": "{{name}}的回合",
+    "highestBid": "最高: {{contract}}",
+    "passes": "过牌: {{count}}/3",
+    "contract": "合约: {{contract}}",
+    "trick": "墩 {{current}}/8",
+    "noCardsPlayed": "尚未出牌",
+    "contracts": {
+      "rufer": "Rufer",
+      "wenz": "Wenz",
+      "solo": "Solo"
+    },
+    "suits": {
+      "eichel": "橡子",
+      "gras": "草",
+      "herz": "红心",
+      "schellen": "铃铛"
+    }
+  },
+  "lobby": {
+    "title": "游戏大厅",
+    "players": "玩家",
+    "waitingForPlayers": "等待玩家...",
+    "allReady": "所有玩家已准备！",
+    "gameStarting": "游戏开始中..."
+  },
+  "dashboard": {
+    "title": "欢迎来到Schafkopf！",
+    "quickActions": "快速操作",
+    "activeLobbies": "活跃大厅",
+    "noLobbies": "没有活跃大厅。创建一个！",
+    "refresh": "刷新大厅",
+    "yourGame": "您的游戏"
+  },
+  "errors": {
+    "notLoggedIn": "未登录",
+    "gameNotFound": "未找到游戏",
+    "notYourTurn": "不是您的回合",
+    "invalidBid": "无效叫牌",
+    "bidTooLow": "您的叫牌太低",
+    "cannotPass": "无法过牌"
+  }
+}
+
+

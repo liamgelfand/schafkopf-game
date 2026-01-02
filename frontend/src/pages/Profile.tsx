@@ -12,7 +12,6 @@ interface UserProfile {
 function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -40,7 +39,7 @@ function Profile() {
       const data = await response.json()
       setProfile(data)
     } catch (err: any) {
-      setError(err.message || 'Failed to load profile')
+      console.error('Failed to load profile:', err)
     } finally {
       setLoading(false)
     }

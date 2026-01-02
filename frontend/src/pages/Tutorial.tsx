@@ -112,12 +112,25 @@ function Tutorial() {
         </section>
 
         <div className="tutorial-actions">
-          <Link to="/game" className="tutorial-button primary">
-            Play Now
-          </Link>
-          <Link to="/" className="tutorial-button">
-            Back to Home
-          </Link>
+          {localStorage.getItem('token') ? (
+            <>
+              <Link to="/lobby" className="tutorial-button primary">
+                Play Now
+              </Link>
+              <Link to="/dashboard" className="tutorial-button">
+                Dashboard
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="tutorial-button primary">
+                Login / Register
+              </Link>
+              <Link to="/" className="tutorial-button">
+                Back to Home
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>

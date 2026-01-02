@@ -1,0 +1,72 @@
+{
+  "common": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "settings": "Settings",
+    "profile": "Profile",
+    "dashboard": "Dashboard",
+    "tutorial": "Tutorial",
+    "stats": "Statistics",
+    "createGame": "Create New Game",
+    "joinGame": "Join Game",
+    "ready": "Ready",
+    "notReady": "Not Ready",
+    "pass": "Pass",
+    "bid": "Bid",
+    "makeBid": "Make Bid",
+    "yourTurn": "Your Turn",
+    "waiting": "Waiting..."
+  },
+  "game": {
+    "title": "Schafkopf",
+    "connecting": "Connecting to game...",
+    "loading": "Loading game...",
+    "yourHand": "Your Hand",
+    "chooseBid": "Choose Your Bid",
+    "makeYourBid": "Make Your Bid",
+    "yourTurnToBid": "Your turn to bid",
+    "turnToBid": "{{name}}'s turn",
+    "highestBid": "Highest: {{contract}}",
+    "passes": "Passes: {{count}}/3",
+    "contract": "Contract: {{contract}}",
+    "trick": "Trick {{current}}/8",
+    "noCardsPlayed": "No cards played yet",
+    "contracts": {
+      "rufer": "Rufer",
+      "wenz": "Wenz",
+      "solo": "Solo"
+    },
+    "suits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    }
+  },
+  "lobby": {
+    "title": "Game Lobby",
+    "players": "Players",
+    "waitingForPlayers": "Waiting for players...",
+    "allReady": "All players ready!",
+    "gameStarting": "Game starting..."
+  },
+  "dashboard": {
+    "title": "Welcome to Schafkopf!",
+    "quickActions": "Quick Actions",
+    "activeLobbies": "Active Lobbies",
+    "noLobbies": "No active lobbies. Create one!",
+    "refresh": "Refresh Lobbies",
+    "yourGame": "Your Game"
+  },
+  "errors": {
+    "notLoggedIn": "Not logged in",
+    "gameNotFound": "Game not found",
+    "notYourTurn": "Not your turn",
+    "invalidBid": "Invalid bid",
+    "bidTooLow": "Your bid is too low",
+    "cannotPass": "Cannot pass"
+  }
+}
+
+

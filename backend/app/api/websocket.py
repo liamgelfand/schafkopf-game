@@ -1,10 +1,11 @@
 from fastapi import WebSocket, WebSocketDisconnect
-from typing import Dict, List
+from typing import Dict, List, Optional
 import json
 import uuid
 from app.models.game import Game
 from app.models.player import Player
 from app.models.card import Card, Suit, Rank
+from app.models.room import GameRoom
 
 class ConnectionManager:
     """Manages WebSocket connections"""
@@ -15,6 +16,7 @@ class ConnectionManager:
         self.game_players: Dict[str, List[str]] = {}  # game_id -> [user_ids]
         self.user_to_player_index: Dict[str, int] = {}  # user_id -> player_index in game
         self.games: Dict[str, Game] = {}
+        self.game_rooms: Dict[str, GameRoom] = {}  # game_id -> GameRoom (for user ID mapping)
     
     def set_player_mapping(self, game_id: str, user_ids: List[str]):
         """Map user IDs to player indices"""
@@ -32,13 +34,26 @@ class ConnectionManager:
             self.game_players[game_id].append(user_id)
     
     def disconnect(self, user_id: str):
+        """Handle user disconnection and cleanup"""
         if user_id in self.active_connections:
             del self.active_connections[user_id]
         
         game_id = self.user_to_game.get(user_id)
-        if game_id and game_id in self.game_players:
-            if user_id in self.game_players[game_id]:
-                self.game_players[game_id].remove(user_id)
+        if game_id:
+            # Remove from game players list
+            if game_id in self.game_players:
+                if user_id in self.game_players[game_id]:
+                    self.game_players[game_id].remove(user_id)
+            
+            # Clean up player index mapping
+            if user_id in self.user_to_player_index:
+                del self.user_to_player_index[user_id]
+            
+            # If game exists and has no active connections, mark for cleanup
+            if game_id in self.games:
+                active_count = len([uid for uid in self.game_players.get(game_id, []) if uid in self.active_connections])
+                if active_count == 0:
+                    print(f"No active connections for game {game_id}, marking for cleanup")
         
         if user_id in self.user_to_game:
             del self.user_to_game[user_id]
@@ -57,10 +72,21 @@ manager = ConnectionManager()
 
 async def websocket_endpoint(websocket: WebSocket, game_id: str, user_id: str):
     """WebSocket endpoint for game communication"""
+    print(f"WebSocket connection: user_id={user_id}, game_id={game_id}")
     await manager.connect(websocket, game_id, user_id)
     
-    # Send initial game state
-    await handle_get_state(game_id, user_id)
+    # Send initial game state if game exists
+    # If game doesn't exist yet, wait for it to be created
+    if game_id in manager.games:
+        print(f"Sending initial game state to {user_id} (game exists)")
+        await handle_get_state(game_id, user_id)
+    else:
+        print(f"Game {game_id} not found yet for {user_id}, will send state when game starts")
+        # Send a message that game is not ready yet
+        await manager.send_personal_message({
+            "type": "game_not_ready",
+            "message": "Game not started yet. Waiting for all players to be ready..."
+        }, user_id)
     
     try:
         while True:
@@ -72,7 +98,7 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, user_id: str):
                 await handle_play_card(game_id, user_id, message)
             elif message["type"] == "pass":
                 await handle_pass(game_id, user_id, message)
-            elif message["type"] == "select_contract":
+            elif message["type"] == "select_contract" or message["type"] == "bid":
                 await handle_select_contract(game_id, user_id, message)
             elif message["type"] == "get_state":
                 await handle_get_state(game_id, user_id)
@@ -83,9 +109,19 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, user_id: str):
                 }, user_id)
     
     except WebSocketDisconnect:
+        print(f"WebSocket disconnected for user: {user_id}")
         manager.disconnect(user_id)
+        # Notify other players if in a game
+        game_id = manager.user_to_game.get(user_id)
+        if game_id:
+            await manager.broadcast_to_game({
+                "type": "player_disconnected",
+                "user_id": user_id
+            }, game_id)
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        print(f"WebSocket error for user {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
         manager.disconnect(user_id)
 
 async def handle_play_card(game_id: str, user_id: str, message: dict):
@@ -125,6 +161,10 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
                 "winner": winner,
                 "trick": [{"suit": c.suit.value, "rank": c.rank.value, "value": c.value} for c in game.all_tricks[-1]]
             }, game_id)
+            
+            # Check if round is complete (all 8 tricks played)
+            if game.is_round_complete():
+                await handle_round_complete(game_id)
         
         # Broadcast updated game state
         await broadcast_game_state(game_id)
@@ -135,7 +175,7 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
         }, user_id)
 
 async def handle_pass(game_id: str, user_id: str, message: dict):
-    """Handle a pass action"""
+    """Handle a pass action during bidding or gameplay"""
     if game_id not in manager.games:
         await manager.send_personal_message({
             "type": "error",
@@ -144,29 +184,79 @@ async def handle_pass(game_id: str, user_id: str, message: dict):
         return
     
     game = manager.games[game_id]
-    
-    # Verify it's this player's turn
     player_index = manager.user_to_player_index.get(user_id, 0)
-    if game.current_player_index != player_index:
-        await manager.send_personal_message({
-            "type": "error",
-            "message": "Not your turn"
-        }, user_id)
+    
+    # Handle bidding phase pass
+    if game.bidding_phase and not game.bidding_complete:
+        if game.pass_bid(player_index):
+            # Check if all 4 players passed with no bid (need to reshuffle)
+            if game.bidding_complete and not game.highest_bid:
+                # All players passed - reshuffle and redeal
+                await manager.broadcast_to_game({
+                    "type": "all_passed",
+                    "message": "All players passed. Reshuffling cards..."
+                }, game_id)
+                
+                # Reshuffle and redeal
+                game.deck.reset()
+                game.deck.shuffle()
+                hands = game.deck.deal(len(game.players))
+                for i, hand in enumerate(hands):
+                    game.players[i].hand = hand
+                
+                # Reset bidding state
+                game.bidding_phase = True
+                game.bidding_complete = False
+                game.highest_bid = None
+                game.passes_in_a_row = 0
+                game.bids_made = 0
+                # Move to next starting bidder (clockwise)
+                game.initial_bidder_index = (game.initial_bidder_index + 1) % len(game.players)
+                game.current_bidder_index = game.initial_bidder_index
+                game.current_player_index = game.current_bidder_index
+                
+                await manager.broadcast_to_game({
+                    "type": "cards_reshuffled",
+                    "new_starting_bidder": game.current_bidder_index,
+                    "message": "Cards reshuffled. New bidding round starting."
+                }, game_id)
+                
+                # Send updated game state after reshuffle
+                await broadcast_game_state(game_id)
+                return  # Exit early after reshuffle
+            
+            # Normal pass (not all passed)
+            await manager.broadcast_to_game({
+                "type": "bid_passed",
+                "player_id": user_id,
+                "player_index": player_index,
+                "passes_in_a_row": game.passes_in_a_row,
+                "bidding_complete": game.bidding_complete
+            }, game_id)
+            
+            if game.bidding_complete and game.highest_bid:
+                await manager.broadcast_to_game({
+                    "type": "bidding_complete",
+                    "contract": game.contract_type,
+                    "declarer": game.declarer_index
+                }, game_id)
+            
+            await broadcast_game_state(game_id)
+        else:
+            await manager.send_personal_message({
+                "type": "error",
+                "message": "Cannot pass (not your turn or invalid state)"
+            }, user_id)
         return
     
-    # Move to next player
-    game.current_player_index = (game.current_player_index + 1) % len(game.players)
-    
-    await manager.broadcast_to_game({
-        "type": "player_passed",
-        "player_id": user_id,
-        "current_player": game.current_player_index
-    }, game_id)
-    
-    await broadcast_game_state(game_id)
+    # Handle gameplay pass (if needed in future)
+    await manager.send_personal_message({
+        "type": "error",
+        "message": "Cannot pass during gameplay"
+    }, user_id)
 
 async def handle_select_contract(game_id: str, user_id: str, message: dict):
-    """Handle contract selection"""
+    """Handle contract selection during bidding phase"""
     if game_id not in manager.games:
         await manager.send_personal_message({
             "type": "error",
@@ -175,29 +265,89 @@ async def handle_select_contract(game_id: str, user_id: str, message: dict):
         return
     
     game = manager.games[game_id]
+    
+    # Must be in bidding phase
+    if not game.bidding_phase or game.bidding_complete:
+        await manager.send_personal_message({
+            "type": "error",
+            "message": "Not in bidding phase"
+        }, user_id)
+        return
+    
+    # Get player index - try multiple ways
+    player_index = manager.user_to_player_index.get(user_id)
+    if player_index is None:
+        # Try to find by matching username in game players
+        for idx, player in enumerate(game.players):
+            if player.name == user_id:
+                player_index = idx
+                manager.user_to_player_index[user_id] = idx
+                break
+        if player_index is None:
+            await manager.send_personal_message({
+                "type": "error",
+                "message": "Could not determine your player position"
+            }, user_id)
+            return
+    
     contract_type = message.get("contract")
     trump_suit = message.get("trump_suit")
     called_ace = message.get("called_ace")
     
-    # Get declarer index from mapping
-    declarer_index = manager.user_to_player_index.get(user_id, 0)
+    # Convert to enums - handle string values
+    trump_suit_enum = None
+    if trump_suit:
+        try:
+            trump_suit_enum = Suit(trump_suit)
+        except (ValueError, KeyError):
+            print(f"Invalid trump suit: {trump_suit}")
     
-    # Set contract
-    trump_suit_enum = Suit(trump_suit) if trump_suit else None
-    called_ace_enum = Suit(called_ace) if called_ace else None
+    called_ace_enum = None
+    if called_ace:
+        try:
+            called_ace_enum = Suit(called_ace)
+        except (ValueError, KeyError):
+            print(f"Invalid called ace: {called_ace}")
     
-    game.set_contract(contract_type, declarer_index, trump_suit_enum, called_ace_enum)
-    
-    await manager.broadcast_to_game({
-        "type": "contract_selected",
-        "contract": contract_type,
-        "declarer": declarer_index
-    }, game_id)
-    
-    await broadcast_game_state(game_id)
+    # Make the bid
+    try:
+        bid_result = game.make_bid(player_index, contract_type, trump_suit_enum, called_ace_enum)
+        if bid_result:
+            await manager.broadcast_to_game({
+                "type": "bid_made",
+                "player_id": user_id,
+                "player_index": player_index,
+                "contract": contract_type,
+                "trump_suit": trump_suit,
+                "called_ace": called_ace
+            }, game_id)
+            
+            await broadcast_game_state(game_id)
+        else:
+            # Provide more specific error message
+            if player_index != game.current_bidder_index:
+                error_msg = f"Not your turn. Current bidder: {game.current_bidder_index}, you are: {player_index}"
+            elif game.highest_bid:
+                error_msg = "Your bid is too low. You must bid higher than the current highest bid."
+            else:
+                error_msg = "Invalid bid (bidding phase may have ended or invalid state)"
+            
+            await manager.send_personal_message({
+                "type": "error",
+                "message": error_msg
+            }, user_id)
+    except Exception as e:
+        print(f"Error making bid: {e}")
+        import traceback
+        traceback.print_exc()
+        await manager.send_personal_message({
+            "type": "error",
+            "message": f"Error processing bid: {str(e)}"
+        }, user_id)
 
 async def handle_get_state(game_id: str, user_id: str):
     """Send current game state to requesting player"""
+    print(f"handle_get_state called for user_id={user_id}, game_id={game_id}")
     if game_id not in manager.games:
         await manager.send_personal_message({
             "type": "error",
@@ -215,8 +365,19 @@ async def broadcast_game_state(game_id: str):
     game = manager.games[game_id]
     
     # Create game state for each player (only show their own hand)
-    for i, user_id in enumerate(manager.game_players.get(game_id, [])):
-        await send_game_state_to_user(game_id, user_id, player_index=i)
+    # Use the actual player mapping, not enumerate
+    for user_id in manager.game_players.get(game_id, []):
+        # Get player index from mapping
+        player_index = manager.user_to_player_index.get(user_id)
+        if player_index is None:
+            # Try to find by matching username
+            for idx, player in enumerate(game.players):
+                if player.name == user_id:
+                    player_index = idx
+                    manager.user_to_player_index[user_id] = idx
+                    break
+        if player_index is not None:
+            await send_game_state_to_user(game_id, user_id, player_index=player_index)
 
 async def send_game_state_to_user(game_id: str, user_id: str, player_index: int = None):
     """Send game state to a specific user"""
@@ -225,9 +386,31 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
     
     game = manager.games[game_id]
     
-    # Determine player index from mapping
+    # Determine player index from mapping - try multiple ways to find it
     if player_index is None:
-        player_index = manager.user_to_player_index.get(user_id, 0)
+        player_index = manager.user_to_player_index.get(user_id)
+        # If not found, try to find by matching username in game players
+        if player_index is None:
+            for idx, player in enumerate(game.players):
+                if player.name == user_id:
+                    player_index = idx
+                    # Update mapping for future use
+                    manager.user_to_player_index[user_id] = idx
+                    print(f"Found player {user_id} at index {idx} by matching name")
+                    break
+        
+        # Still not found? Default to 0 but log warning
+        if player_index is None:
+            print(f"ERROR: Could not find player index for user_id: {user_id}")
+            print(f"  Available mappings: {manager.user_to_player_index}")
+            print(f"  Game players: {[p.name for p in game.players]}")
+            print(f"  Game ID: {game_id}")
+            player_index = 0
+    
+    # Validate player_index
+    if player_index >= len(game.players):
+        print(f"Error: player_index {player_index} out of range for {len(game.players)} players")
+        player_index = 0
     
     # Create state with player's hand visible
     player_hand = [
@@ -241,6 +424,15 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
         for i, p in enumerate(game.players)
     ]
     
+    # Get actual player names from game players
+    player_names = [p.name for p in game.players]
+    
+    print(f"Sending game state to {user_id}:")
+    print(f"  Player index: {player_index}")
+    print(f"  Player names: {player_names}")
+    print(f"  Your hand size: {len(player_hand)}")
+    print(f"  Other hands: {other_hands}")
+    
     state = {
         "game_id": game_id,
         "current_trick": [
@@ -253,10 +445,145 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
         "contract": game.contract_type,
         "trick_number": game.trick_number,
         "round_complete": game.is_round_complete(),
-        "players": [p.name for p in game.players]
+        "players": player_names,
+        "your_player_index": player_index,  # CRITICAL: Include this!
+        "bidding_phase": game.bidding_phase and not game.bidding_complete,
+        "current_bidder": game.current_bidder_index if game.bidding_phase else None,
+        "highest_bid": game.highest_bid,
+        "passes_in_a_row": game.passes_in_a_row
     }
     
     await manager.send_personal_message({
         "type": "game_state",
         "state": state
     }, user_id)
+
+async def handle_round_complete(game_id: str):
+    """Handle round completion - calculate scores and save to database"""
+    if game_id not in manager.games:
+        return
+    
+    game = manager.games[game_id]
+    
+    if not game.contract:
+        print(f"Warning: Round complete but no contract set for game {game_id}")
+        return
+    
+    try:
+        # Calculate scores
+        round_score = game.calculate_scores()
+        from app.game_logic.scoring import calculate_game_points
+        game_points = calculate_game_points(round_score, game.contract_type)
+        
+        # Get room to access user IDs
+        room = manager.game_rooms.get(game_id)
+        if not room:
+            print(f"Warning: No room found for game {game_id}")
+            return
+        
+        # Save game records and update stats for all players
+        from app.database.database import SessionLocal
+        from app.database.models import User, GameRecord, PlayerStats
+        from datetime import datetime
+        
+        db = SessionLocal()
+        try:
+            # Get usernames from game players (these match the websocket user_ids)
+            usernames = [p.name for p in game.players]
+            
+            # Map usernames to database user IDs
+            user_id_map = {}  # username -> integer user_id
+            for player_info in room.players:
+                user_id_map[player_info["username"]] = player_info["user_id"]
+            
+            # Determine which players won (declarer team)
+            declarer_won = round_score["won"]
+            if game.contract_type == "Rufer" and game.partner_index is not None:
+                # Partnership game
+                winning_team = [game.declarer_index, game.partner_index]
+            else:
+                # Solo game
+                winning_team = [game.declarer_index]
+            
+            # Save GameRecord and update PlayerStats for each player
+            for player_index, username in enumerate(usernames):
+                # Get integer user_id from map
+                user_id = user_id_map.get(username)
+                if not user_id:
+                    print(f"Warning: Could not find user_id for username {username}")
+                    continue
+                # Get user from database
+                user = db.query(User).filter(User.id == user_id).first()
+                if not user:
+                    print(f"Warning: User {user_id} not found in database")
+                    continue
+                
+                # Determine if this player won
+                player_won = player_index in winning_team and declarer_won
+                
+                # Create GameRecord
+                # Calculate points for this player
+                # game_points is from declarer's perspective, so negate for opponents
+                if player_index in winning_team:
+                    # Player is on winning team - use game_points as-is
+                    player_game_points = game_points
+                else:
+                    # Player is on losing team - negate the points
+                    player_game_points = -game_points
+                
+                game_record = GameRecord(
+                    game_id=game_id,
+                    user_id=user_id,
+                    contract_type=game.contract_type,
+                    declarer_index=game.declarer_index,
+                    partner_index=game.partner_index,
+                    won=player_won,
+                    schneider=round_score["schneider"],
+                    schwarz=round_score["schwarz"],
+                    declarer_points=round_score["declarer_points"],
+                    team_points=round_score["team_points"],
+                    game_points=player_game_points,
+                    created_at=datetime.utcnow()
+                )
+                db.add(game_record)
+                
+                # Update or create PlayerStats
+                stats = db.query(PlayerStats).filter(PlayerStats.user_id == user_id).first()
+                if not stats:
+                    stats = PlayerStats(user_id=user_id)
+                    db.add(stats)
+                
+                stats.games_played += 1
+                if player_won:
+                    stats.games_won += 1
+                # Add absolute value of points to total (only positive points count)
+                stats.total_points += abs(game_points) if player_won else 0
+                if round_score["schneider"] and player_won:
+                    stats.schneider_count += 1
+                if round_score["schwarz"] and player_won:
+                    stats.schwarz_count += 1
+                stats.last_played = datetime.utcnow()
+                stats.updated_at = datetime.utcnow()
+            
+            db.commit()
+            
+            # Broadcast round complete message
+            await manager.broadcast_to_game({
+                "type": "round_complete",
+                "scores": round_score,
+                "game_points": game_points,
+                "message": f"Round complete! {'Declarer team won!' if declarer_won else 'Opponents won!'}"
+            }, game_id)
+            
+        except Exception as e:
+            db.rollback()
+            print(f"Error saving game results: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            db.close()
+            
+    except Exception as e:
+        print(f"Error handling round completion: {e}")
+        import traceback
+        traceback.print_exc()
