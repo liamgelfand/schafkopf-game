@@ -6,6 +6,7 @@ from app.models.game import Game
 from app.models.player import Player
 from app.models.card import Card, Suit, Rank
 from app.models.room import GameRoom
+from app.game_logic.tricks import determine_trick_winner, is_valid_play, get_invalid_play_reason
 
 class ConnectionManager:
     """Manages WebSocket connections"""
@@ -145,17 +146,47 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
         }, user_id)
         return
     
+    # Validate it's the player's turn
+    if player_index != game.current_player_index:
+        print(f"ERROR: {user_id} (index {player_index}) tried to play out of turn. Current player: {game.current_player_index}")
+        await manager.send_personal_message({
+            "type": "error",
+            "message": f"Not your turn. Current player: {game.current_player_index}, You are: {player_index}"
+        }, user_id)
+        return
+    
     # Convert card dict to Card object
     card_data = message.get("card", {})
     suit = Suit(card_data.get("suit"))
     rank = Rank(card_data.get("rank"))
     card = Card(suit, rank)
     
+    print(f"Card play: {user_id} (index {player_index}) playing {card.suit.value} {card.rank.value}")
+    print(f"  Before play - current_player_index: {game.current_player_index}, trick size: {len(game.current_trick)}")
+    
+    # Validate the play before attempting it
+    led_suit = game.current_trick[0].suit if game.current_trick else None
+    if not is_valid_play(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit):
+        reason = get_invalid_play_reason(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit)
+        error_message = f"Cannot play this card. {reason}" if reason else "Cannot play this card. Invalid play."
+        print(f"  Card play failed - {error_message}")
+        await manager.send_personal_message({
+            "type": "play_error",
+            "message": error_message,
+            "card": {"suit": card.suit.value, "rank": card.rank.value}
+        }, user_id)
+        # Send updated state so they can see valid plays
+        await send_game_state_to_user(game_id, user_id, player_index)
+        return
+    
     # Play the card
     if game.play_card(player_index, card):
+        print(f"  After play - current_player_index: {game.current_player_index}, trick size: {len(game.current_trick)}")
+        
         # Check if trick is complete
         if len(game.current_trick) == 4:
             winner = game.complete_trick()
+            print(f"  Trick complete - winner: {winner}, new current_player_index: {game.current_player_index}")
             await manager.broadcast_to_game({
                 "type": "trick_complete",
                 "winner": winner,
@@ -167,12 +198,18 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
                 await handle_round_complete(game_id)
         
         # Broadcast updated game state
+        print(f"  Broadcasting game state - current_player_index: {game.current_player_index}")
         await broadcast_game_state(game_id)
     else:
+        # This should rarely happen now since we validate first, but keep as fallback
+        print(f"  Card play failed - game.play_card returned False")
         await manager.send_personal_message({
-            "type": "error",
-            "message": "Invalid card play"
+            "type": "play_error",
+            "message": "Cannot play this card. The card may have already been played or is not in your hand.",
+            "card": {"suit": card.suit.value, "rank": card.rank.value}
         }, user_id)
+        # Send updated state so they can see valid plays
+        await send_game_state_to_user(game_id, user_id, player_index)
 
 async def handle_pass(game_id: str, user_id: str, message: dict):
     """Handle a pass action during bidding or gameplay"""
@@ -452,6 +489,8 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
         "highest_bid": game.highest_bid,
         "passes_in_a_row": game.passes_in_a_row
     }
+    
+    print(f"  State being sent - current_player: {state['current_player']}, your_player_index: {state['your_player_index']}")
     
     await manager.send_personal_message({
         "type": "game_state",

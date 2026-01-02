@@ -97,4 +97,42 @@ def is_valid_play(
     valid_plays = get_valid_plays(player, led_suit, contract_type, trump_suit)
     return card in valid_plays
 
+def get_invalid_play_reason(
+    card: Card,
+    player: Player,
+    led_suit: Optional[Suit],
+    contract_type: str,
+    trump_suit: Optional[Suit] = None
+) -> str:
+    """
+    Get the reason why a card play is invalid
+    
+    Args:
+        card: The card to check
+        player: The player making the play
+        led_suit: The suit that was led (None if leading)
+        contract_type: Type of contract
+        trump_suit: For Solo contracts, the chosen trump suit
+    
+    Returns:
+        Reason string if invalid, empty string if valid
+    """
+    if card not in player.hand:
+        return "You don't have this card in your hand."
+    
+    if led_suit is None:
+        # Leading - any card is valid
+        return ""
+    
+    # Must follow suit if possible
+    cards_of_led_suit = [c for c in player.hand if c.suit == led_suit]
+    
+    if cards_of_led_suit:
+        # Player has cards of the led suit, must follow suit
+        if card.suit != led_suit:
+            return f"You must follow suit. The {led_suit.value} suit was led, and you have {len(cards_of_led_suit)} {led_suit.value} card(s) in your hand."
+    
+    # Can't follow suit - any card is valid
+    return ""
+
 

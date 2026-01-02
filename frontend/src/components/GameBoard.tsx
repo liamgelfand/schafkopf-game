@@ -38,6 +38,7 @@ function GameBoard() {
   const [selectedCalledAce, setSelectedCalledAce] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [playError, setPlayError] = useState<string | null>(null)
   const wsRef = useRef<GameWebSocket | null>(null)
   const userIdRef = useRef<string>('')
 
@@ -161,22 +162,55 @@ function GameBoard() {
         break
 
       case 'error':
-        setError(message.message || 'An error occurred')
+        // Only set error for critical errors that should block the UI
+        if (message.message && !message.message.includes('Not your turn') && !message.message.includes('Cannot play')) {
+          setError(message.message || 'An error occurred')
+        }
+        break
+      
+      case 'play_error':
+        // Show play error as a temporary notification, don't disconnect
+        setPlayError(message.message || 'Cannot play this card')
+        console.log('Play error:', message.message)
+        // Clear error after 5 seconds
+        setTimeout(() => setPlayError(null), 5000)
         break
     }
   }
 
   const handleCardClick = useCallback(
     (card: CardType) => {
-      if (!gameState) return
+      if (!gameState) {
+        console.log('Cannot play card: no game state')
+        return
+      }
       
       // Only allow card play if not in bidding phase and it's your turn
-      if (gameState.bidding_phase || gameState.current_player !== 0) {
+      const yourIndex = gameState.your_player_index ?? 0
+      console.log('Card click:', {
+        card: `${card.suit} ${card.rank}`,
+        yourIndex,
+        currentPlayer: gameState.current_player,
+        biddingPhase: gameState.bidding_phase,
+        isYourTurn: !gameState.bidding_phase && gameState.current_player === yourIndex
+      })
+      
+      if (gameState.bidding_phase) {
+        console.log('Cannot play card: still in bidding phase')
+        return
+      }
+      
+      if (gameState.current_player !== yourIndex) {
+        console.log(`Cannot play card: not your turn. Current player: ${gameState.current_player}, You are: ${yourIndex}`)
         return
       }
 
-      if (!wsRef.current) return
+      if (!wsRef.current) {
+        console.log('Cannot play card: WebSocket not connected')
+        return
+      }
 
+      console.log(`Playing card: ${card.suit} ${card.rank}`)
       setSelectedCard(card)
       wsRef.current.playCard({
         suit: card.suit,
@@ -497,6 +531,19 @@ function GameBoard() {
       <Link to="/lobby" className="back-link">
         Back to Lobby
       </Link>
+
+      {/* Play Error Toast */}
+      {playError && (
+        <div className="play-error-toast" onClick={() => setPlayError(null)}>
+          <div className="play-error-content">
+            <strong>Cannot Play Card</strong>
+            <p>{playError}</p>
+            <button className="close-error-btn" onClick={(e) => { e.stopPropagation(); setPlayError(null); }}>
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
