@@ -44,7 +44,8 @@ def get_valid_plays(
     player: Player,
     led_suit: Optional[Suit],
     contract_type: str,
-    trump_suit: Optional[Suit] = None
+    trump_suit: Optional[Suit] = None,
+    led_card: Optional[Card] = None
 ) -> List[Card]:
     """
     Get all valid cards a player can play
@@ -53,7 +54,8 @@ def get_valid_plays(
         player: The player making the play
         led_suit: The suit that was led (None if leading)
         contract_type: Type of contract
-        trump_suit: For Solo contracts, the chosen trump suit
+        trump_suit: For Solo/Wenz contracts, the chosen trump suit
+        led_card: The card that was led (to check if it's trump)
     
     Returns:
         List of valid cards to play
@@ -62,21 +64,33 @@ def get_valid_plays(
         # Leading - can play any card
         return player.hand.copy()
     
-    # Must follow suit if possible
-    cards_of_led_suit = [c for c in player.hand if c.suit == led_suit]
+    # Check if the led card is a trump
+    led_is_trump = False
+    if led_card:
+        led_is_trump = led_card.is_trump(contract_type, trump_suit)
     
-    if cards_of_led_suit:
-        return cards_of_led_suit
-    
-    # Can't follow suit - can play any card
-    return player.hand.copy()
+    if led_is_trump:
+        # If a trump was led, must follow trump if possible
+        trumps = [c for c in player.hand if c.is_trump(contract_type, trump_suit)]
+        if trumps:
+            return trumps
+        # No trumps - can play any card
+        return player.hand.copy()
+    else:
+        # Non-trump was led - must follow suit if possible
+        cards_of_led_suit = [c for c in player.hand if c.suit == led_suit and not c.is_trump(contract_type, trump_suit)]
+        if cards_of_led_suit:
+            return cards_of_led_suit
+        # Can't follow suit - can play any card (including trumps)
+        return player.hand.copy()
 
 def is_valid_play(
     card: Card,
     player: Player,
     led_suit: Optional[Suit],
     contract_type: str,
-    trump_suit: Optional[Suit] = None
+    trump_suit: Optional[Suit] = None,
+    led_card: Optional[Card] = None
 ) -> bool:
     """
     Check if a card play is valid
@@ -86,7 +100,8 @@ def is_valid_play(
         player: The player making the play
         led_suit: The suit that was led (None if leading)
         contract_type: Type of contract
-        trump_suit: For Solo contracts, the chosen trump suit
+        trump_suit: For Solo/Wenz contracts, the chosen trump suit
+        led_card: The card that was led (to check if it's trump)
     
     Returns:
         True if the play is valid
@@ -94,7 +109,7 @@ def is_valid_play(
     if card not in player.hand:
         return False
     
-    valid_plays = get_valid_plays(player, led_suit, contract_type, trump_suit)
+    valid_plays = get_valid_plays(player, led_suit, contract_type, trump_suit, led_card)
     return card in valid_plays
 
 def get_invalid_play_reason(
@@ -102,7 +117,8 @@ def get_invalid_play_reason(
     player: Player,
     led_suit: Optional[Suit],
     contract_type: str,
-    trump_suit: Optional[Suit] = None
+    trump_suit: Optional[Suit] = None,
+    led_card: Optional[Card] = None
 ) -> str:
     """
     Get the reason why a card play is invalid
@@ -112,7 +128,8 @@ def get_invalid_play_reason(
         player: The player making the play
         led_suit: The suit that was led (None if leading)
         contract_type: Type of contract
-        trump_suit: For Solo contracts, the chosen trump suit
+        trump_suit: For Solo/Wenz contracts, the chosen trump suit
+        led_card: The card that was led (to check if it's trump)
     
     Returns:
         Reason string if invalid, empty string if valid
@@ -124,15 +141,26 @@ def get_invalid_play_reason(
         # Leading - any card is valid
         return ""
     
-    # Must follow suit if possible
-    cards_of_led_suit = [c for c in player.hand if c.suit == led_suit]
+    # Check if the led card is a trump
+    led_is_trump = False
+    if led_card:
+        led_is_trump = led_card.is_trump(contract_type, trump_suit)
     
-    if cards_of_led_suit:
-        # Player has cards of the led suit, must follow suit
-        if card.suit != led_suit:
-            return f"You must follow suit. The {led_suit.value} suit was led, and you have {len(cards_of_led_suit)} {led_suit.value} card(s) in your hand."
-    
-    # Can't follow suit - any card is valid
-    return ""
+    if led_is_trump:
+        # If a trump was led, must follow trump if possible
+        trumps = [c for c in player.hand if c.is_trump(contract_type, trump_suit)]
+        if trumps:
+            if not card.is_trump(contract_type, trump_suit):
+                return f"You must follow trump. A trump card was led, and you have {len(trumps)} trump card(s) in your hand."
+        # No trumps - any card is valid
+        return ""
+    else:
+        # Non-trump was led - must follow suit if possible (but not trumps of that suit)
+        cards_of_led_suit = [c for c in player.hand if c.suit == led_suit and not c.is_trump(contract_type, trump_suit)]
+        if cards_of_led_suit:
+            if card.suit != led_suit or card.is_trump(contract_type, trump_suit):
+                return f"You must follow suit. The {led_suit.value} suit was led, and you have {len(cards_of_led_suit)} {led_suit.value} card(s) in your hand."
+        # Can't follow suit - any card is valid
+        return ""
 
 

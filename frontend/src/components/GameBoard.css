@@ -410,3 +410,179 @@
 .back-link:hover {
   background: #555;
 }
+
+/* Round Complete Modal */
+.round-complete-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.round-complete-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.round-complete-content h2 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  text-align: center;
+}
+
+.round-result {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: #2d5016;
+}
+
+.scores-section {
+  margin: 1.5rem 0;
+}
+
+.scores-section h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.player-scores-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-score {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  border-radius: 6px;
+  background: #f5f5f5;
+}
+
+.player-score.winner {
+  background: #d4edda;
+  border: 2px solid #28a745;
+}
+
+.player-score.loser {
+  background: #f8d7da;
+  border: 2px solid #dc3545;
+}
+
+.player-score .player-name {
+  font-weight: bold;
+  color: #333;
+}
+
+.player-score .points {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.player-score .badge {
+  background: #28a745;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.round-actions {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.back-to-lobby-btn {
+  background: #2d5016;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-to-lobby-btn:hover {
+  background: #1a4d0f;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Trick Card Positions */
+.trick-card-position {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trick-card-bottom {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.trick-card-right {
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.trick-card-top {
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.trick-card-left {
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.trick-card-player {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: bold;
+}
+
+.trick-display {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+}
+
+.contract-display .trump-suit,
+.contract-display .called-ace {
+  color: #2d5016;
+  font-weight: bold;
+  margin-left: 0.5rem;
+}

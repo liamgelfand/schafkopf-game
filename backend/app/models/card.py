@@ -54,14 +54,19 @@ class Card:
         
         Args:
             contract_type: Type of contract ('Rufer', 'Wenz', or 'Solo')
-            trump_suit: For Solo contracts, the chosen trump suit
+            trump_suit: For Solo/Wenz contracts, the chosen trump suit (Suited Wenz)
         
         Returns:
             True if this card is a trump
         """
         if contract_type == "Wenz":
-            # Only Unters are trumps in Wenz
-            return self.rank == Rank.UNTER
+            # In Wenz: Only Unters are trumps
+            # In Suited Wenz: Unters + all cards of the chosen suit
+            if self.rank == Rank.UNTER:
+                return True
+            if trump_suit and self.suit == trump_suit:
+                return True  # Suited Wenz - suit cards are also trumps
+            return False
         
         if contract_type == "Solo":
             # In Solo: chosen suit + all Obers + all Unters
@@ -82,7 +87,7 @@ class Card:
             other: The card to compare against
             led_suit: The suit that was led in the trick
             contract_type: Type of contract
-            trump_suit: For Solo contracts, the chosen trump suit
+            trump_suit: For Solo/Wenz contracts, the chosen trump suit
         
         Returns:
             -1 if this card is lower, 0 if equal, 1 if this card is higher
@@ -98,7 +103,7 @@ class Card:
         
         # If both are trumps, compare by rank order
         if this_trump and other_trump:
-            return self._compare_trump_ranks(other)
+            return self._compare_trump_ranks(other, contract_type, trump_suit)
         
         # Both are non-trumps - must follow suit
         if self.suit != led_suit or other.suit != led_suit:
@@ -108,22 +113,41 @@ class Card:
         # Compare by rank order (non-trump)
         return self._compare_non_trump_ranks(other)
     
-    def _compare_trump_ranks(self, other: 'Card') -> int:
-        """Compare ranks when both cards are trumps"""
-        # Trump rank order (highest to lowest):
-        # Herz Ober, Eichel Ober, Gras Ober, Schellen Ober,
-        # Herz Unter, Eichel Unter, Gras Unter, Schellen Unter,
-        # Then Hearts in order: Ace, Ten, King, 9, 8, 7
+    def _compare_trump_ranks(self, other: 'Card', contract_type: str = "Rufer", trump_suit: Optional[Suit] = None) -> int:
+        """
+        Compare ranks when both cards are trumps.
         
-        # Obers are highest
-        if self.rank == Rank.OBER and other.rank != Rank.OBER:
-            return 1
-        if self.rank != Rank.OBER and other.rank == Rank.OBER:
-            return -1
+        Contract-specific rules:
+        - Wenz: Only Unters are trumps (Obers are NOT trumps)
+        - Solo: Obers > Unters > Suit cards
+        - Rufer: Obers > Unters > Hearts
+        """
+        # Contract-specific trump ranking:
+        # - Wenz: Only Unters are trumps (Obers are NOT trumps)
+        # - Solo: Obers > Unters > Suit cards
+        # - Rufer: Obers > Unters > Hearts
         
-        # If both are Obers, compare by suit
+        if contract_type == "Wenz":
+            # In Wenz, Obers are NOT trumps, so if we're comparing trumps,
+            # both must be Unters (or suit cards in Suited Wenz)
+            # Unters beat suit cards
+            if self.rank == Rank.UNTER and other.rank != Rank.UNTER:
+                return 1  # Unter beats suit card
+            if self.rank != Rank.UNTER and other.rank == Rank.UNTER:
+                return -1  # Suit card loses to Unter
+            # Both are Unters or both are suit cards - handled below
+        else:
+            # For Solo and Rufer: Obers > Unters
+            # Obers are highest - beat Unters and suit cards
+            if self.rank == Rank.OBER and other.rank != Rank.OBER:
+                return 1
+            if self.rank != Rank.OBER and other.rank == Rank.OBER:
+                return -1
+        
+        # If both are Obers, compare by suit order
+        # Order: Eichel > Gras > Herz > Schellen
         if self.rank == Rank.OBER and other.rank == Rank.OBER:
-            ober_order = [Suit.HERZ, Suit.EICHEL, Suit.GRAS, Suit.SCHELLEN]
+            ober_order = [Suit.EICHEL, Suit.GRAS, Suit.HERZ, Suit.SCHELLEN]
             self_idx = ober_order.index(self.suit)
             other_idx = ober_order.index(other.suit)
             if self_idx < other_idx:
@@ -132,15 +156,17 @@ class Card:
                 return -1
             return 0
         
-        # Unters are next
+        # Unters are next - beat suit cards but lose to Obers (in Solo/Rufer)
+        # In Wenz, only Unters are trumps, so this comparison only happens between Unters
         if self.rank == Rank.UNTER and other.rank != Rank.UNTER:
             return 1
         if self.rank != Rank.UNTER and other.rank == Rank.UNTER:
             return -1
         
-        # If both are Unters, compare by suit
+        # If both are Unters, compare by suit order
+        # Order: Eichel > Gras > Herz > Schellen
         if self.rank == Rank.UNTER and other.rank == Rank.UNTER:
-            unter_order = [Suit.HERZ, Suit.EICHEL, Suit.GRAS, Suit.SCHELLEN]
+            unter_order = [Suit.EICHEL, Suit.GRAS, Suit.HERZ, Suit.SCHELLEN]
             self_idx = unter_order.index(self.suit)
             other_idx = unter_order.index(other.suit)
             if self_idx < other_idx:
@@ -149,15 +175,28 @@ class Card:
                 return -1
             return 0
         
-        # Both are Hearts (non-Ober/Unter)
-        # Order: Ace, Ten, King, 9, 8, 7
-        heart_order = [Rank.ACE, Rank.TEN, Rank.KING, Rank.NINE, Rank.EIGHT, Rank.SEVEN]
-        self_idx = heart_order.index(self.rank)
-        other_idx = heart_order.index(other.rank)
-        if self_idx < other_idx:
-            return 1
-        if self_idx > other_idx:
-            return -1
+        # Both are suit cards (non-Ober/Unter trumps)
+        # This happens in:
+        # - Rufer: Hearts (Ace, Ten, King, Nine, Eight, Seven - Ober/Unter already counted)
+        # - Solo: Chosen suit (Ace, Ten, King, Nine, Eight, Seven - Ober/Unter already counted)
+        # - Suited Wenz: Chosen suit (Ace, Ten, King, Ober, Nine, Eight, Seven - Ober IS in suit)
+        # Compare by rank order: Ace > Ten > King > 9 > 8 > 7
+        # Note: In Suited Wenz, Ober of the suit is included in suit cards
+        suit_card_order = [Rank.ACE, Rank.TEN, Rank.KING, Rank.NINE, Rank.EIGHT, Rank.SEVEN]
+        if contract_type == "Wenz" and trump_suit:
+            # In Suited Wenz, Ober of the suit is a suit card (not a separate trump category)
+            suit_card_order = [Rank.ACE, Rank.TEN, Rank.KING, Rank.OBER, Rank.NINE, Rank.EIGHT, Rank.SEVEN]
+        
+        if self.rank in suit_card_order and other.rank in suit_card_order:
+            self_idx = suit_card_order.index(self.rank)
+            other_idx = suit_card_order.index(other.rank)
+            if self_idx < other_idx:
+                return 1
+            if self_idx > other_idx:
+                return -1
+            return 0
+        
+        # Fallback: should not happen if both are trumps
         return 0
     
     def _compare_non_trump_ranks(self, other: 'Card') -> int:

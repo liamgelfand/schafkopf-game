@@ -1,5 +1,6 @@
 from typing import List, Optional, Dict
 from datetime import datetime
+import secrets
 from app.models.game import Game
 from app.models.player import Player
 from app.models.card import Suit
@@ -7,7 +8,7 @@ from app.models.card import Suit
 class GameRoom:
     """Represents a game room waiting for players"""
     
-    def __init__(self, room_id: str, creator_id: int, creator_username: str):
+    def __init__(self, room_id: str, creator_id: int, creator_username: str, is_private: bool = False):
         self.room_id = room_id
         self.creator_id = creator_id
         self.players: List[Dict] = []  # List of {user_id, username, ready}
@@ -15,6 +16,8 @@ class GameRoom:
         self.created_at = datetime.utcnow()
         self.game: Optional[Game] = None
         self.max_players = 4
+        self.is_private = is_private
+        self.join_code = secrets.token_urlsafe(6).upper() if is_private else None  # 6-character code for private rooms
     
     def add_player(self, user_id: int, username: str) -> bool:
         """Add a player to the room"""
@@ -72,6 +75,8 @@ class GameRoom:
             "players": self.players,
             "status": self.status,
             "max_players": self.max_players,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
+            "is_private": self.is_private,
+            "join_code": self.join_code
         }
 

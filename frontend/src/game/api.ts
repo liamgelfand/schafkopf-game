@@ -46,11 +46,11 @@ export async function getGameState(gameId: string): Promise<any> {
 }
 
 // Room management
-export async function createRoom(name?: string): Promise<any> {
+export async function createRoom(name?: string, isPrivate?: boolean): Promise<any> {
   const response = await fetch(`${API_BASE_URL}/rooms/create`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ name: name || 'Game Room' }),
+    body: JSON.stringify({ name: name || 'Game Room', is_private: isPrivate || false }),
   })
   if (!response.ok) throw new Error('Failed to create room')
   return response.json()
@@ -64,10 +64,11 @@ export async function listRooms(): Promise<any> {
   return response.json()
 }
 
-export async function joinRoom(roomId: string): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/join`, {
+export async function joinRoom(roomId?: string, joinCode?: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/rooms/join`, {
     method: 'POST',
     headers: getAuthHeaders(),
+    body: JSON.stringify({ room_id: roomId, join_code: joinCode }),
   })
   if (!response.ok) throw new Error('Failed to join room')
   return response.json()

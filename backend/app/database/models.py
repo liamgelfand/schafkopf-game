@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
@@ -25,8 +25,9 @@ class GameRecord(Base):
     __tablename__ = "games"
     
     id = Column(Integer, primary_key=True, index=True)
-    game_id = Column(String, unique=True, index=True)
+    game_id = Column(String, index=True)  # Removed unique - multiple players per game
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    __table_args__ = (UniqueConstraint('game_id', 'user_id', name='uq_game_user'),)
     contract_type = Column(String)
     declarer_index = Column(Integer)
     partner_index = Column(Integer, nullable=True)

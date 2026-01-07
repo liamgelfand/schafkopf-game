@@ -166,8 +166,9 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
     
     # Validate the play before attempting it
     led_suit = game.current_trick[0].suit if game.current_trick else None
-    if not is_valid_play(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit):
-        reason = get_invalid_play_reason(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit)
+    led_card = game.current_trick[0] if game.current_trick else None
+    if not is_valid_play(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit, led_card):
+        reason = get_invalid_play_reason(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit, led_card)
         error_message = f"Cannot play this card. {reason}" if reason else "Cannot play this card. Invalid play."
         print(f"  Card play failed - {error_message}")
         await manager.send_personal_message({
@@ -470,16 +471,38 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
     print(f"  Your hand size: {len(player_hand)}")
     print(f"  Other hands: {other_hands}")
     
+    # Build current trick with player indices
+    current_trick_with_players = []
+    if game.current_trick:
+        trick_start_index = (game.current_player_index - len(game.current_trick)) % len(game.players)
+        for i, card in enumerate(game.current_trick):
+            player_idx = (trick_start_index + i) % len(game.players)
+            current_trick_with_players.append({
+                "suit": card.suit.value,
+                "rank": card.rank.value,
+                "value": card.value,
+                "player_index": player_idx,
+                "player_name": player_names[player_idx]
+            })
+    
+    # Get contract details
+    contract_details = {
+        "type": game.contract_type,
+        "trump_suit": game.trump_suit.value if game.trump_suit else None,
+        "declarer_index": game.declarer_index,
+        "partner_index": game.partner_index
+    }
+    if game.contract_type == "Rufer" and hasattr(game.contract, 'called_ace_suit'):
+        contract_details["called_ace"] = game.contract.called_ace_suit.value if game.contract.called_ace_suit else None
+    
     state = {
         "game_id": game_id,
-        "current_trick": [
-            {"suit": c.suit.value, "rank": c.rank.value, "value": c.value}
-            for c in game.current_trick
-        ],
+        "current_trick": current_trick_with_players,
         "current_player": game.current_player_index,
         "your_hand": player_hand,
         "other_hands": other_hands,
         "contract": game.contract_type,
+        "contract_details": contract_details,
         "trick_number": game.trick_number,
         "round_complete": game.is_round_complete(),
         "players": player_names,
@@ -606,11 +629,30 @@ async def handle_round_complete(game_id: str):
             
             db.commit()
             
-            # Broadcast round complete message
+            # Calculate player-specific scores
+            player_scores = {}
+            for player_index, username in enumerate(usernames):
+                user_id = user_id_map.get(username)
+                if user_id:
+                    player_won = player_index in winning_team and declarer_won
+                    if player_index in winning_team:
+                        player_game_points = game_points
+                    else:
+                        player_game_points = -game_points
+                    player_scores[username] = {
+                        "won": player_won,
+                        "game_points": player_game_points,
+                        "player_index": player_index
+                    }
+            
+            # Broadcast round complete message with full details
             await manager.broadcast_to_game({
                 "type": "round_complete",
                 "scores": round_score,
                 "game_points": game_points,
+                "player_scores": player_scores,
+                "declarer_won": declarer_won,
+                "winning_team": winning_team,
                 "message": f"Round complete! {'Declarer team won!' if declarer_won else 'Opponents won!'}"
             }, game_id)
             

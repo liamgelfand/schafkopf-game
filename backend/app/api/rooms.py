@@ -14,9 +14,11 @@ router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 class CreateRoomRequest(BaseModel):
     name: str = "Game Room"
+    is_private: bool = False
 
 class JoinRoomRequest(BaseModel):
-    room_id: str
+    room_id: str = None
+    join_code: str = None
 
 class ReadyRequest(BaseModel):
     ready: bool
@@ -30,9 +32,9 @@ async def create_room(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new game room"""
+    """Create a new game room (public or private)"""
     room_id = str(uuid.uuid4())
-    room = GameRoom(room_id, current_user.id, current_user.username)
+    room = GameRoom(room_id, current_user.id, current_user.username, is_private=request.is_private)
     room.add_player(current_user.id, current_user.username)
     rooms[room_id] = room
     
@@ -42,25 +44,37 @@ async def create_room(
 async def list_rooms(
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all available rooms"""
+    """List all available public rooms (private rooms are not listed)"""
     available_rooms = [
         room.to_dict() 
         for room in rooms.values() 
-        if room.status == "waiting" and len(room.players) < room.max_players
+        if room.status == "waiting" 
+        and len(room.players) < room.max_players
+        and not room.is_private  # Only show public rooms
     ]
     return {"rooms": available_rooms}
 
-@router.post("/{room_id}/join")
+@router.post("/join")
 async def join_room(
-    room_id: str,
+    request: JoinRoomRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Join a game room"""
-    if room_id not in rooms:
-        raise HTTPException(status_code=404, detail="Room not found")
+    """Join a game room by room_id or join_code"""
+    room = None
     
-    room = rooms[room_id]
+    if request.room_id:
+        # Join by room ID
+        if request.room_id not in rooms:
+            raise HTTPException(status_code=404, detail="Room not found")
+        room = rooms[request.room_id]
+    elif request.join_code:
+        # Join by join code (for private rooms)
+        room = next((r for r in rooms.values() if r.join_code == request.join_code.upper()), None)
+        if not room:
+            raise HTTPException(status_code=404, detail="Room not found with that join code")
+    else:
+        raise HTTPException(status_code=400, detail="Either room_id or join_code must be provided")
     
     if room.status != "waiting":
         raise HTTPException(status_code=400, detail="Room is not accepting players")

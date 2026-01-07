@@ -61,8 +61,9 @@ class Game:
             if trump_suit:
                 self.trump_suit = trump_suit  # Suited Wenz
         elif contract_type == "Solo":
+            # Solo defaults to Hearts if no suit specified
             if trump_suit is None:
-                raise ValueError("Solo contract requires trump_suit")
+                trump_suit = Suit.HERZ
             self.contract = SoloContract(declarer_index, trump_suit)
             self.trump_suit = trump_suit
         else:
@@ -79,8 +80,9 @@ class Game:
         
         # Validate the play
         led_suit = self.current_trick[0].suit if self.current_trick else None
+        led_card = self.current_trick[0] if self.current_trick else None
         
-        if not is_valid_play(card, player, led_suit, self.contract_type, self.trump_suit):
+        if not is_valid_play(card, player, led_suit, self.contract_type, self.trump_suit, led_card):
             return False
         
         # Remove card from hand and add to trick
@@ -190,8 +192,9 @@ class Game:
             # Wenz can be with or without suit (trump_suit indicates suited)
             pass
         elif contract_type == "Solo":
-            if trump_suit is None:
-                return False
+            # Solo can be bid without suit (defaults to Hearts)
+            # trump_suit can be None, will default to Hearts in set_contract
+            pass
         else:
             return False  # Unknown contract type
         

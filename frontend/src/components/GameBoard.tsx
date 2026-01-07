@@ -6,13 +6,27 @@ import { Card as CardType, ContractType } from '../game/types'
 import { GameWebSocket } from '../game/websocket'
 import './GameBoard.css'
 
+interface TrickCard extends CardType {
+  player_index?: number
+  player_name?: string
+}
+
+interface ContractDetails {
+  type: string
+  trump_suit?: string
+  declarer_index?: number
+  partner_index?: number
+  called_ace?: string
+}
+
 interface GameState {
   game_id: string
-  current_trick: CardType[]
+  current_trick: TrickCard[]
   current_player: number
   your_hand: CardType[]
   other_hands: (number | null)[]
   contract?: string
+  contract_details?: ContractDetails
   trick_number: number
   round_complete: boolean
   players: string[]
@@ -28,6 +42,15 @@ interface GameState {
   passes_in_a_row?: number
 }
 
+interface RoundCompleteData {
+  scores: any
+  game_points: number
+  player_scores: Array<{ player_index: number; username: string; points: number; won: boolean }> | Record<string, { won: boolean; game_points: number; player_index: number }>
+  declarer_won?: boolean
+  winning_team?: number[]
+  message: string
+}
+
 function GameBoard() {
   const [searchParams] = useSearchParams()
   const roomId = searchParams.get('room') || ''
@@ -39,6 +62,7 @@ function GameBoard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [playError, setPlayError] = useState<string | null>(null)
+  const [roundComplete, setRoundComplete] = useState<RoundCompleteData | null>(null)
   const wsRef = useRef<GameWebSocket | null>(null)
   const userIdRef = useRef<string>('')
 
@@ -109,6 +133,7 @@ function GameBoard() {
           your_hand: state.your_hand || [],
           other_hands: state.other_hands || [],
           contract: state.contract,
+          contract_details: state.contract_details,
           trick_number: state.trick_number || 0,
           round_complete: state.round_complete || false,
           players: state.players || [],
@@ -120,6 +145,16 @@ function GameBoard() {
           highest_bid: state.highest_bid || null,
           passes_in_a_row: state.passes_in_a_row || 0,
         })
+        break
+      
+      case 'round_complete':
+        console.log('Round complete message received:', message)
+        setRoundComplete(message)
+        setGameState(prev => prev ? { ...prev, round_complete: true } : null)
+        // Request final state to ensure we have all data
+        if (wsRef.current) {
+          wsRef.current.getState()
+        }
         break
       
       case 'game_not_ready':
@@ -403,11 +438,20 @@ function GameBoard() {
             </div>
           ) : (
             <div className="trick-display">
-              {gameState.current_trick.map((card, idx) => (
-                <Card key={idx} card={card} disabled={true} />
-              ))}
-              {gameState.current_trick.length === 0 && (
+              {gameState.current_trick.length === 0 ? (
                 <div className="empty-trick">No cards played yet</div>
+              ) : (
+                gameState.current_trick.map((card, idx) => {
+                  const playerIdx = card.player_index ?? idx
+                  const relativePos = (playerIdx - yourPlayerIndex + 4) % 4
+                  const positionClass = relativePos === 0 ? 'bottom' : relativePos === 1 ? 'right' : relativePos === 2 ? 'top' : 'left'
+                  return (
+                    <div key={idx} className={`trick-card-position trick-card-${positionClass}`}>
+                      <Card card={card} disabled={true} />
+                      <div className="trick-card-player">{card.player_name || playerNames[playerIdx]}</div>
+                    </div>
+                  )
+                })
               )}
             </div>
           )}
@@ -528,8 +572,8 @@ function GameBoard() {
         </div>
       )}
 
-      <Link to="/lobby" className="back-link">
-        Back to Lobby
+      <Link to="/dashboard" className="back-link">
+        Back to Dashboard
       </Link>
 
       {/* Play Error Toast */}
@@ -541,6 +585,51 @@ function GameBoard() {
             <button className="close-error-btn" onClick={(e) => { e.stopPropagation(); setPlayError(null); }}>
               ×
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Round Complete Modal */}
+      {roundComplete && (
+        <div className="round-complete-modal">
+          <div className="round-complete-content">
+            <h2>Round Complete!</h2>
+            <p className="round-result">{roundComplete.message}</p>
+            
+            <div className="scores-section">
+              <h3>Scores</h3>
+              <div className="player-scores-list">
+                {Array.isArray(roundComplete.player_scores) ? (
+                  // Backend sends array format
+                  roundComplete.player_scores.map((playerScore, idx) => (
+                    <div key={idx} className={`player-score ${playerScore.won ? 'winner' : 'loser'}`}>
+                      <span className="player-name">{playerScore.username}</span>
+                      <span className="points">{playerScore.points > 0 ? '+' : ''}{playerScore.points}</span>
+                      {playerScore.won && <span className="badge">Winner</span>}
+                    </div>
+                  ))
+                ) : (
+                  // Backend sends object format (fallback)
+                  gameState.players.map((playerName, idx) => {
+                    const playerScore = roundComplete.player_scores[playerName]
+                    if (!playerScore) return null
+                    return (
+                      <div key={idx} className={`player-score ${playerScore.won ? 'winner' : 'loser'}`}>
+                        <span className="player-name">{playerName}</span>
+                        <span className="points">{playerScore.game_points > 0 ? '+' : ''}{playerScore.game_points}</span>
+                        {playerScore.won && <span className="badge">Winner</span>}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+
+            <div className="round-actions">
+              <button className="back-to-lobby-btn" onClick={() => window.location.href = '/dashboard'}>
+                Back to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       )}

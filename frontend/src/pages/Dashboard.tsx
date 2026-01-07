@@ -10,12 +10,15 @@ interface GameRoom {
   players: Array<{ user_id: number; username: string; ready: boolean }>
   status: 'waiting' | 'starting' | 'in_progress'
   max_players: number
+  is_private?: boolean
+  join_code?: string
 }
 
 function Dashboard() {
   const [rooms, setRooms] = useState<GameRoom[]>([])
   const [showSettings, setShowSettings] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [isPrivateRoom, setIsPrivateRoom] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -42,7 +45,16 @@ function Dashboard() {
   const handleCreateRoom = async () => {
     setLoading(true)
     try {
-      const room = await createRoom('Game Room')
+      // Create room (public or private based on user selection)
+      const room = await createRoom('Game Room', isPrivateRoom)
+      console.log('Room created from dashboard:', room)
+      
+      if (!room || !room.id) {
+        console.error('Invalid room response:', room)
+        alert('Failed to create room. Please try again.')
+        return
+      }
+      
       // Join the room first, then navigate
       try {
         const { joinRoom } = await import('../game/api')
@@ -51,9 +63,12 @@ function Dashboard() {
         // Already in room or other error, continue anyway
         console.log('Join room result:', err)
       }
+      
+      // Navigate to lobby with the room ID
       navigate(`/lobby?room=${room.id}`, { replace: true })
     } catch (err: any) {
       console.error('Failed to create room:', err)
+      alert(`Failed to create room: ${err.message || 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -91,12 +106,23 @@ function Dashboard() {
         <div className="dashboard-main">
           <section className="quick-actions">
             <h2>Quick Start</h2>
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={isPrivateRoom} 
+                  onChange={(e) => setIsPrivateRoom(e.target.checked)}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span>Create Private Room (with join code)</span>
+              </label>
+            </div>
             <button 
               className="primary-button"
               onClick={handleCreateRoom}
               disabled={loading}
             >
-              {loading ? 'Creating...' : 'Create New Game'}
+              {loading ? 'Creating...' : isPrivateRoom ? 'Create Private Game' : 'Create Public Game'}
             </button>
             <Link to="/lobby" className="secondary-button">
               Browse All Games
