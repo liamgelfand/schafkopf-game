@@ -186,12 +186,36 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
         
         # Check if trick is complete
         if len(game.current_trick) == 4:
+            # Calculate starting player BEFORE completing trick
+            # current_player_index points to next player, so starting player is 3 positions back
+            trick_start_index = (game.current_player_index - 3) % len(game.players)
+            
+            # Complete the trick (this updates current_player_index to winner)
             winner = game.complete_trick()
             print(f"  Trick complete - winner: {winner}, new current_player_index: {game.current_player_index}")
+            
+            # Get winner's name
+            winner_name = game.players[winner].name if winner < len(game.players) else f"Player {winner}"
+            
+            # Build trick with player information using the trick that was just completed
+            trick_with_players = []
+            completed_trick = game.all_tricks[-1]  # The trick that was just completed
+            for i, card in enumerate(completed_trick):
+                player_idx = (trick_start_index + i) % len(game.players)
+                trick_with_players.append({
+                    "suit": card.suit.value,
+                    "rank": card.rank.value,
+                    "value": card.value,
+                    "player_index": player_idx,
+                    "player_name": game.players[player_idx].name if player_idx < len(game.players) else f"Player {player_idx}"
+                })
+            
             await manager.broadcast_to_game({
                 "type": "trick_complete",
                 "winner": winner,
-                "trick": [{"suit": c.suit.value, "rank": c.rank.value, "value": c.value} for c in game.all_tricks[-1]]
+                "winner_name": winner_name,
+                "trick": trick_with_players,
+                "trick_number": game.trick_number
             }, game_id)
             
             # Check if round is complete (all 8 tricks played)
@@ -583,7 +607,6 @@ async def handle_round_complete(game_id: str):
                 # Determine if this player won
                 player_won = player_index in winning_team and declarer_won
                 
-                # Create GameRecord
                 # Calculate points for this player
                 # game_points is from declarer's perspective, so negate for opponents
                 if player_index in winning_team:
@@ -593,21 +616,40 @@ async def handle_round_complete(game_id: str):
                     # Player is on losing team - negate the points
                     player_game_points = -game_points
                 
-                game_record = GameRecord(
-                    game_id=game_id,
-                    user_id=user_id,
-                    contract_type=game.contract_type,
-                    declarer_index=game.declarer_index,
-                    partner_index=game.partner_index,
-                    won=player_won,
-                    schneider=round_score["schneider"],
-                    schwarz=round_score["schwarz"],
-                    declarer_points=round_score["declarer_points"],
-                    team_points=round_score["team_points"],
-                    game_points=player_game_points,
-                    created_at=datetime.utcnow()
-                )
-                db.add(game_record)
+                # Check if record already exists (avoid duplicate key error)
+                existing_record = db.query(GameRecord).filter(
+                    GameRecord.game_id == game_id,
+                    GameRecord.user_id == user_id
+                ).first()
+                
+                if existing_record:
+                    # Update existing record
+                    existing_record.contract_type = game.contract_type
+                    existing_record.declarer_index = game.declarer_index
+                    existing_record.partner_index = game.partner_index
+                    existing_record.won = player_won
+                    existing_record.schneider = round_score["schneider"]
+                    existing_record.schwarz = round_score["schwarz"]
+                    existing_record.declarer_points = round_score["declarer_points"]
+                    existing_record.team_points = round_score["team_points"]
+                    existing_record.game_points = player_game_points
+                else:
+                    # Create new GameRecord
+                    game_record = GameRecord(
+                        game_id=game_id,
+                        user_id=user_id,
+                        contract_type=game.contract_type,
+                        declarer_index=game.declarer_index,
+                        partner_index=game.partner_index,
+                        won=player_won,
+                        schneider=round_score["schneider"],
+                        schwarz=round_score["schwarz"],
+                        declarer_points=round_score["declarer_points"],
+                        team_points=round_score["team_points"],
+                        game_points=player_game_points,
+                        created_at=datetime.utcnow()
+                    )
+                    db.add(game_record)
                 
                 # Update or create PlayerStats
                 stats = db.query(PlayerStats).filter(PlayerStats.user_id == user_id).first()
@@ -661,6 +703,33 @@ async def handle_round_complete(game_id: str):
             print(f"Error saving game results: {e}")
             import traceback
             traceback.print_exc()
+            # Still broadcast round complete even if database save fails
+            # Calculate player-specific scores for display
+            player_scores = {}
+            for player_index, username in enumerate(usernames):
+                user_id = user_id_map.get(username)
+                if user_id:
+                    player_won = player_index in winning_team and declarer_won
+                    if player_index in winning_team:
+                        player_game_points = game_points
+                    else:
+                        player_game_points = -game_points
+                    player_scores[username] = {
+                        "won": player_won,
+                        "game_points": player_game_points,
+                        "player_index": player_index
+                    }
+            
+            # Broadcast round complete message even on database error
+            await manager.broadcast_to_game({
+                "type": "round_complete",
+                "scores": round_score,
+                "game_points": game_points,
+                "player_scores": player_scores,
+                "declarer_won": declarer_won,
+                "winning_team": winning_team,
+                "message": f"Round complete! {'Declarer team won!' if declarer_won else 'Opponents won!'}"
+            }, game_id)
         finally:
             db.close()
             
@@ -668,3 +737,14 @@ async def handle_round_complete(game_id: str):
         print(f"Error handling round completion: {e}")
         import traceback
         traceback.print_exc()
+        # Try to broadcast basic round complete message even on error
+        try:
+            await manager.broadcast_to_game({
+                "type": "round_complete",
+                "message": "Round complete! (Score calculation may be incomplete)",
+                "player_scores": {},
+                "scores": {},
+                "game_points": 0
+            }, game_id)
+        except:
+            pass

@@ -12,21 +12,9 @@ class TestE2EGameFlow:
     @pytest.mark.skip(reason="Requires full API setup - use integration tests instead")
     def test_complete_bidding_flow(self):
         """Test complete bidding flow from start to contract selection"""
-        # Create room
-        create_response = client.post(
-            "/api/rooms/create",
-            headers=auth_headers,
-            json={"name": "E2E Test Room"}
-        )
-        room_id = create_response.json()["id"]
-        
-        # Set ready (triggers game start if 4 players)
-        response = client.post(
-            f"/api/rooms/{room_id}/ready",
-            headers=auth_headers,
-            json={"ready": True}
-        )
-        assert response.status_code == 200
+        # This test requires a full API setup with authentication
+        # Use integration tests instead for full E2E testing
+        pass
     
     def test_bidding_with_all_contract_types(self):
         """Test that all contract types can be bid correctly"""
@@ -57,11 +45,15 @@ class TestE2EGameFlow:
         game.current_bidder_index = 2
         assert game.make_bid(2, "Wenz", Suit.EICHEL) == True
         
-        # Test Solo - should succeed (higher than Suited Wenz)
+        # Test Solo with suit - should succeed (higher than Suited Wenz)
         game.current_bidder_index = 3
         assert game.make_bid(3, "Solo", Suit.GRAS) == True  # Solo is higher than Suited Wenz
         
-        # But another Solo cannot override (same rank)
+        # Test Solo without suit (defaults to Hearts) - should fail (same rank, can't override)
+        game.current_bidder_index = 0
+        assert game.make_bid(0, "Solo", None) == False  # Same rank, can't override
+        
+        # But another Solo with different suit also cannot override (same rank)
         game.current_bidder_index = 0
         assert game.make_bid(0, "Solo", Suit.EICHEL) == False  # Same rank, can't override
     
@@ -187,7 +179,35 @@ class TestE2EGameFlow:
         assert game.make_bid(3, "Solo", Suit.EICHEL) == True
         assert game.get_contract_rank("Solo", Suit.EICHEL) == 4
         
-        # But another Solo cannot override (same rank)
+        # But another Solo cannot override (same rank, regardless of suit)
         game.current_bidder_index = 0
         assert game.make_bid(0, "Solo", Suit.GRAS) == False
+        
+        # Solo without suit also cannot override (defaults to Hearts, but same rank)
+        game.current_bidder_index = 0
+        assert game.make_bid(0, "Solo", None) == False
+    
+    def test_solo_defaults_to_hearts(self):
+        """Test that Solo without a suit defaults to Hearts"""
+        game = Game("test-solo-default")
+        for i in range(4):
+            game.add_player(f"player{i+1}")
+        game.deal_cards()
+        game.current_bidder_index = 0
+        game.initial_bidder_index = 0
+        
+        # Make a Solo bid without specifying a suit
+        assert game.make_bid(0, "Solo", None) == True
+        
+        # Complete bidding with passes
+        while not game.bidding_complete and game.bids_made < 4:
+            current_idx = game.current_bidder_index
+            game.pass_bid(current_idx)
+        
+        # Set the contract (this is normally done automatically, but we'll do it manually for testing)
+        game.set_contract("Solo", 0, None)  # None should default to Hearts
+        
+        # Verify that trump_suit is set to Hearts
+        assert game.contract_type == "Solo"
+        assert game.trump_suit == Suit.HERZ  # Should default to Hearts
 

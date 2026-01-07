@@ -32,7 +32,6 @@ function Lobby() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [isPrivateRoom, setIsPrivateRoom] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const navigate = useNavigate()
 
@@ -168,7 +167,7 @@ function Lobby() {
     }
   }
 
-  const createRoomHandler = async () => {
+  const createRoomHandler = async (isPrivate: boolean = true) => {
     setLoading(true)
     setError('')
     try {
@@ -178,7 +177,7 @@ function Lobby() {
         return
       }
 
-      const newRoom = await createRoom('Game Room', isPrivateRoom)
+      const newRoom = await createRoom('Game Room', isPrivate)
       console.log('Room created:', newRoom)
       if (newRoom && newRoom.id) {
         // Ensure players array exists
@@ -378,10 +377,10 @@ function Lobby() {
             {currentPlayer && (
               <button 
                 onClick={toggleReady} 
-                className={`ready-button ${currentPlayer.ready ? 'ready' : ''}`}
+                className={`ready-button ${currentPlayer.ready ? 'ready' : 'not-ready'}`}
                 disabled={loading}
               >
-                {currentPlayer.ready ? 'Not Ready' : 'Ready'}
+                {currentPlayer.ready ? 'Cancel' : 'Ready Up'}
               </button>
             )}
             
@@ -412,36 +411,96 @@ function Lobby() {
         
         {error && <div className="error-message">{error}</div>}
         
-        <div className="create-room-section">
-          <h3>Create Room</h3>
-          <div className="create-room-controls">
-            <label className="private-room-toggle">
-              <input 
-                type="checkbox" 
-                checked={isPrivateRoom} 
-                onChange={(e) => setIsPrivateRoom(e.target.checked)}
-              />
-              <span>Private Room (with join code)</span>
-            </label>
-            <button onClick={createRoomHandler} className="create-room-button" disabled={loading}>
-              {loading ? 'Creating...' : isPrivateRoom ? 'Create Private Room' : 'Create Public Room'}
+        <div className="lobby-sections">
+          {/* Private Room Section */}
+          <div className="private-room-section">
+            <div className="section-header">
+              <div className="section-icon">🔒</div>
+              <div>
+                <h2>Create Private Room</h2>
+                <p className="section-description">Create a room with a shareable code</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => createRoomHandler(true)} 
+              className="create-private-button" 
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="button-content">
+                  <span className="spinner"></span>
+                  Creating...
+                </span>
+              ) : (
+                <span className="button-content">
+                  <span className="button-icon">🔒</span>
+                  Create Private Room
+                </span>
+              )}
             </button>
           </div>
-        </div>
 
-        <div className="join-by-code-section">
-          <h3>Join by Code</h3>
-          <div className="join-code-input">
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Enter join code"
-              maxLength={8}
-              className="join-code-field"
-            />
-            <button onClick={joinByCodeHandler} className="join-code-button" disabled={loading || !joinCode.trim()}>
-              Join
+          {/* Join by Code Section */}
+          <div className="join-by-code-section">
+            <div className="section-header">
+              <div className="section-icon">🔑</div>
+              <div>
+                <h2>Join with Code</h2>
+                <p className="section-description">Enter a code to join a private room</p>
+              </div>
+            </div>
+            <div className="join-code-content">
+              <div className="join-code-input-group">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="Enter 6-8 character code"
+                  maxLength={8}
+                  className="join-code-input-field"
+                />
+                <button 
+                  onClick={joinByCodeHandler} 
+                  className="join-code-submit-button" 
+                  disabled={loading || !joinCode.trim()}
+                >
+                  {loading ? 'Joining...' : 'Join Room'}
+                </button>
+              </div>
+              {joinCode && (
+                <div className="code-preview">
+                  <span className="code-preview-label">Code:</span>
+                  <span className="code-preview-value">{joinCode}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Public Room Section */}
+          <div className="public-room-section">
+            <div className="section-header">
+              <div className="section-icon">🌐</div>
+              <div>
+                <h2>Create Public Room</h2>
+                <p className="section-description">Create a room that anyone can join</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => createRoomHandler(false)} 
+              className="create-public-button" 
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="button-content">
+                  <span className="spinner"></span>
+                  Creating...
+                </span>
+              ) : (
+                <span className="button-content">
+                  <span className="button-icon">🌐</span>
+                  Create Public Room
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -454,17 +513,35 @@ function Lobby() {
             rooms.map((room) => (
               <div key={room.id} className="room-item">
                 <div className="room-info">
-                  <span className="room-name">Room {room.id.substring(0, 8)}</span>
+                  <div className="room-header-row">
+                    <span className="room-name">Game Room</span>
+                    <span className={`room-type-badge ${room.is_private ? 'private' : 'public'}`}>
+                      {room.is_private ? '🔒 Private' : '🌐 Public'}
+                    </span>
+                  </div>
                   <span className="room-players-count">
                     {(room.players || []).length}/{room.max_players} players
+                    {room.status === 'in_progress' && ' • In Progress'}
                   </span>
+                  {room.players && room.players.length > 0 && (
+                    <div className="room-players-preview">
+                      {room.players.slice(0, 3).map(p => (
+                        <span key={p.user_id} className="player-preview-tag">
+                          {p.username}
+                        </span>
+                      ))}
+                      {room.players.length > 3 && (
+                        <span className="player-preview-tag">+{room.players.length - 3}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button 
                   onClick={() => joinRoomHandler(room.id)} 
                   className="join-button"
-                  disabled={(room.players || []).length >= room.max_players || loading}
+                  disabled={(room.players || []).length >= room.max_players || loading || room.status === 'in_progress'}
                 >
-                  Join
+                  {room.status === 'in_progress' ? 'In Progress' : (room.players || []).length >= room.max_players ? 'Full' : 'Join'}
                 </button>
               </div>
             ))

@@ -106,57 +106,93 @@ function Dashboard() {
         <div className="dashboard-main">
           <section className="quick-actions">
             <h2>Quick Start</h2>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={isPrivateRoom} 
-                  onChange={(e) => setIsPrivateRoom(e.target.checked)}
-                  style={{ cursor: 'pointer' }}
-                />
-                <span>Create Private Room (with join code)</span>
-              </label>
+            <div className="quick-actions-grid">
+              <button 
+                className="quick-action-btn quick-action-public"
+                onClick={() => {
+                  setIsPrivateRoom(false)
+                  handleCreateRoom()
+                }}
+                disabled={loading}
+              >
+                <span className="quick-action-icon">🌐</span>
+                <div className="quick-action-content">
+                  <span className="quick-action-title">Create Public Room</span>
+                  <span className="quick-action-desc">Anyone can join</span>
+                </div>
+                {loading && !isPrivateRoom && <span className="quick-action-spinner"></span>}
+              </button>
+              
+              <button 
+                className="quick-action-btn quick-action-private"
+                onClick={() => {
+                  setIsPrivateRoom(true)
+                  handleCreateRoom()
+                }}
+                disabled={loading}
+              >
+                <span className="quick-action-icon">🔒</span>
+                <div className="quick-action-content">
+                  <span className="quick-action-title">Create Private Room</span>
+                  <span className="quick-action-desc">Share a code to join</span>
+                </div>
+                {loading && isPrivateRoom && <span className="quick-action-spinner"></span>}
+              </button>
+              
+              <Link to="/lobby" className="quick-action-btn quick-action-browse">
+                <span className="quick-action-icon">🔍</span>
+                <div className="quick-action-content">
+                  <span className="quick-action-title">Browse Games</span>
+                  <span className="quick-action-desc">Join existing rooms</span>
+                </div>
+              </Link>
             </div>
-            <button 
-              className="primary-button"
-              onClick={handleCreateRoom}
-              disabled={loading}
-            >
-              {loading ? 'Creating...' : isPrivateRoom ? 'Create Private Game' : 'Create Public Game'}
-            </button>
-            <Link to="/lobby" className="secondary-button">
-              Browse All Games
-            </Link>
           </section>
 
           <section className="active-lobbies">
-            <h2>Active Lobbies</h2>
+            <h2>Public Game Rooms</h2>
             {rooms.length === 0 ? (
-              <p className="no-rooms">No active lobbies. Create a game to get started!</p>
+              <p className="no-rooms">No public rooms available. Create a game to get started!</p>
             ) : (
               <div className="rooms-list">
                 {rooms.map(room => (
                   <div key={room.id} className="room-card">
                     <div className="room-info">
-                      <h3>Game Room</h3>
+                      <div className="room-header">
+                        <h3>Game Room</h3>
+                        <span className={`room-type-badge ${room.is_private ? 'private' : 'public'}`}>
+                          {room.is_private ? '🔒 Private' : '🌐 Public'}
+                        </span>
+                      </div>
                       <p className="room-status">
                         {room.players.length}/{room.max_players} players
                         {room.status === 'in_progress' && ' • In Progress'}
                       </p>
-                      <div className="room-players">
-                        {room.players.map(p => (
-                          <span key={p.user_id} className="player-tag">
-                            {p.username}
-                          </span>
-                        ))}
-                      </div>
+                      {room.players.length > 0 && (
+                        <div className="room-players">
+                          {room.players.map(p => (
+                            <span key={p.user_id} className="player-tag">
+                              {p.username}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <button
-                      className="join-button"
+                      className="play-button"
                       onClick={() => handleJoinRoom(room.id)}
                       disabled={room.status === 'in_progress' || room.players.length >= room.max_players}
                     >
-                      {room.status === 'in_progress' ? 'In Progress' : 'Join'}
+                      {room.status === 'in_progress' ? (
+                        'In Progress'
+                      ) : room.players.length >= room.max_players ? (
+                        'Full'
+                      ) : (
+                        <>
+                          <span className="play-icon">▶</span>
+                          Play
+                        </>
+                      )}
                     </button>
                   </div>
                 ))}

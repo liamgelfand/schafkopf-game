@@ -580,6 +580,65 @@
   min-height: 200px;
 }
 
+.trick-winner-announcement {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+.trick-winner-badge {
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+  color: #333;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+  border: 2px solid #ffd700;
+}
+
+.trick-card-position.trick-winner {
+  animation: winnerPulse 0.5s ease-in-out 3;
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+.trick-card-position.trick-winner .trick-card-player {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.winner-indicator {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.5);
+  animation: winnerPulse 0.5s ease-in-out 3;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  10%, 90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes winnerPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
 .contract-display .trump-suit,
 .contract-display .called-ace {
   color: #2d5016;

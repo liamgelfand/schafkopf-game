@@ -63,6 +63,7 @@ function GameBoard() {
   const [error, setError] = useState('')
   const [playError, setPlayError] = useState<string | null>(null)
   const [roundComplete, setRoundComplete] = useState<RoundCompleteData | null>(null)
+  const [trickWinner, setTrickWinner] = useState<{ winner: number; winner_name: string; trick_number: number } | null>(null)
   const wsRef = useRef<GameWebSocket | null>(null)
   const userIdRef = useRef<string>('')
 
@@ -191,6 +192,17 @@ function GameBoard() {
         break
 
       case 'trick_complete':
+        console.log('Trick complete:', message)
+        // Store trick winner information
+        if (message.winner !== undefined && message.winner_name) {
+          setTrickWinner({
+            winner: message.winner,
+            winner_name: message.winner_name,
+            trick_number: message.trick_number || 0
+          })
+          // Clear trick winner after 3 seconds
+          setTimeout(() => setTrickWinner(null), 3000)
+        }
         if (wsRef.current) {
           wsRef.current.getState()
         }
@@ -438,6 +450,13 @@ function GameBoard() {
             </div>
           ) : (
             <div className="trick-display">
+              {trickWinner && (
+                <div className="trick-winner-announcement">
+                  <div className="trick-winner-badge">
+                    🏆 {trickWinner.winner_name} won Trick {trickWinner.trick_number}!
+                  </div>
+                </div>
+              )}
               {gameState.current_trick.length === 0 ? (
                 <div className="empty-trick">No cards played yet</div>
               ) : (
@@ -445,10 +464,12 @@ function GameBoard() {
                   const playerIdx = card.player_index ?? idx
                   const relativePos = (playerIdx - yourPlayerIndex + 4) % 4
                   const positionClass = relativePos === 0 ? 'bottom' : relativePos === 1 ? 'right' : relativePos === 2 ? 'top' : 'left'
+                  const isWinner = trickWinner && trickWinner.winner === playerIdx
                   return (
-                    <div key={idx} className={`trick-card-position trick-card-${positionClass}`}>
+                    <div key={idx} className={`trick-card-position trick-card-${positionClass} ${isWinner ? 'trick-winner' : ''}`}>
                       <Card card={card} disabled={true} />
                       <div className="trick-card-player">{card.player_name || playerNames[playerIdx]}</div>
+                      {isWinner && <div className="winner-indicator">✓</div>}
                     </div>
                   )
                 })
