@@ -51,7 +51,9 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-test.txt
 
       - name: Install dependencies
         run: |
@@ -76,13 +78,21 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-test.txt
 
       - name: Install backend dependencies
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-test.txt
+
+      - name: Debug installed test deps
+        working-directory: backend
+        run: |
+          python -c "import pytest; print('pytest', pytest.__version__)"
+          python -c "import pytest_bdd; print('pytest-bdd', pytest_bdd.__version__)"
 
       - name: Run docker E2E tests
         working-directory: backend
