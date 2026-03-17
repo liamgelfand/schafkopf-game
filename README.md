@@ -90,7 +90,7 @@ export DATABASE_URL="sqlite:///./schafkopf.db"  # or PostgreSQL URL
 
 5. Run the server:
 ```bash
-uvicorn app.main:app --reload --port 8000
+yes 
 ```
 
 #### Frontend Setup
