@@ -3,6 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import './Login.css'
 
+// Use same backend base URL logic as API client
+const API_BASE_URL = import.meta.env.VITE_BACKEND_HTTP_URL
+  ? `${import.meta.env.VITE_BACKEND_HTTP_URL}/api`
+  : '/api'
+
 function Login() {
   const { t } = useTranslation()
   const [isLogin, setIsLogin] = useState(true)
@@ -19,7 +24,9 @@ function Login() {
     setLoading(true)
 
     try {
-      const url = isLogin ? '/api/auth/login' : '/api/auth/register'
+      const url = isLogin
+        ? `${API_BASE_URL}/auth/login`
+        : `${API_BASE_URL}/auth/register`
       const body = isLogin
         ? new URLSearchParams({ username, password })
         : JSON.stringify({ username, email, password })
