@@ -1,5 +1,8 @@
 // API client for backend communication
-const API_BASE_URL = '/api'
+// In production (Vercel + Fly), set VITE_BACKEND_HTTP_URL=https://backend-schafkopf.fly.dev
+const API_BASE_URL = import.meta.env.VITE_BACKEND_HTTP_URL
+  ? `${import.meta.env.VITE_BACKEND_HTTP_URL}/api`
+  : '/api'
 
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem('token')
