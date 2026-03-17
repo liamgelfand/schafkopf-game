@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { createRoom, listRooms, joinRoom, joinRoomByCode, setReady, startGame, getRoom, leaveRoom as leaveRoomAPI } from '../game/api'
+import { createRoom, listRooms, joinRoom, joinRoomByCode, getRoom, leaveRoom as leaveRoomAPI } from '../game/api'
 import './Lobby.css'
 
 interface Player {
@@ -82,11 +82,16 @@ function Lobby() {
     if (!token) return
 
     try {
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const response = await fetch(
+        (import.meta.env.VITE_BACKEND_HTTP_URL
+          ? `${import.meta.env.VITE_BACKEND_HTTP_URL}/api/auth/me`
+          : '/api/auth/me'),
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         }
-      })
+      )
 
       if (response.ok) {
         const userData = await response.json()
@@ -208,36 +213,9 @@ function Lobby() {
     }
   }
 
-  const toggleReady = async () => {
-    if (!currentRoom || !currentUser) return
-    
-    const isReady = currentRoom.players.find(p => p.user_id === currentUser.id)?.ready || false
-    
-    try {
-      const room = await setReady(currentRoom.id, !isReady)
-      setCurrentRoom(room)
-      // Also refresh rooms list to update other players' views
-      await loadRooms()
-    } catch (err: any) {
-      setError(err.message || t('errors.failedToSetReady'))
-      // Refresh room state on error
-      refreshRoom()
-    }
-  }
+  // Ready logic removed: games auto-start when 4 players join
 
-  const startGameHandler = async () => {
-    if (!currentRoom) return
-    
-    setLoading(true)
-    try {
-      await startGame(currentRoom.id)
-      navigate(`/game?room=${currentRoom.id}`)
-    } catch (err: any) {
-      setError(err.message || t('errors.failedToStartGame'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Manual start handler no longer used (games auto-start when room is full)
 
   const leaveRoom = async () => {
     if (!currentRoom) return
@@ -261,12 +239,6 @@ function Lobby() {
   }
 
   if (currentRoom) {
-    const isCreator = currentUser && currentRoom.creator_id === currentUser.id
-    const currentPlayer = currentRoom.players.find(p => 
-      currentUser && p.user_id === currentUser.id
-    )
-    const allReady = currentRoom.players.length === currentRoom.max_players && 
-                     currentRoom.players.every(p => p.ready)
 
     return (
       <div className="lobby-page">
@@ -280,11 +252,6 @@ function Lobby() {
               {currentRoom.players.map((player) => (
                 <div key={player.user_id} className="player-item">
                   <span>{player.username}</span>
-                  {player.ready ? (
-                    <span className="ready-badge">{t('common.ready')}</span>
-                  ) : (
-                    <span className="not-ready-badge">{t('common.notReady')}</span>
-                  )}
                 </div>
               ))}
               {Array.from({ length: currentRoom.max_players - currentRoom.players.length }).map((_, i) => (
@@ -293,15 +260,6 @@ function Lobby() {
                 </div>
               ))}
             </div>
-            {/* Debug info - remove in production */}
-            {import.meta.env.MODE === 'development' && (
-              <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
-                Debug: Creator ID: {currentRoom.creator_id}, Your ID: {currentUser?.id}, 
-                Is Creator: {isCreator ? t('common.yes') : t('common.no')}, 
-                All Ready: {allReady ? t('common.yes') : t('common.no')} 
-                ({currentRoom.players.filter(p => p.ready).length}/{currentRoom.players.length} {t('common.ready').toLowerCase()})
-              </div>
-            )}
           </div>
 
           {currentRoom.is_private && currentRoom.room_code && (
@@ -324,26 +282,7 @@ function Lobby() {
           )}
 
           <div className="room-actions">
-            {currentPlayer && (
-              <button 
-                onClick={toggleReady} 
-                className={`ready-button ${currentPlayer.ready ? 'ready' : ''}`}
-                disabled={loading}
-              >
-                {currentPlayer.ready ? t('common.notReady') : t('common.ready')}
-              </button>
-            )}
-            
-            {isCreator && allReady && (
-              <button 
-                onClick={startGameHandler} 
-                className="start-game-button"
-                disabled={loading}
-              >
-                {loading ? t('common.starting') : t('lobby.startGame')}
-              </button>
-            )}
-            
+            {/* No manual ready / start buttons – backend auto-starts when room is full */}
             <button onClick={leaveRoom} className="leave-button">
               {t('common.leaveRoom')}
             </button>

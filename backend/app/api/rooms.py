@@ -99,6 +99,61 @@ async def join_room(
     if not room.add_player(current_user.id, current_user.username):
         raise HTTPException(status_code=400, detail="Cannot join room (room is full)")
     
+    # Auto-start game when room is full (no manual ready)
+    if len(room.players) == room.max_players and room.status == "waiting":
+        import random
+        from app.api.websocket import manager
+
+        game = room.start_game()
+        manager.games[room_id] = game
+        manager.game_rooms[room_id] = room
+
+        # Randomly select starting player for bidding
+        starting_bidder = random.randint(0, 3)
+        game.current_bidder_index = starting_bidder
+        game.current_player_index = starting_bidder
+
+        # Map user IDs to player indices using join order
+        user_ids = [p["username"] for p in room.players]
+        manager.set_player_mapping(room_id, user_ids)
+
+        # Broadcast game started
+        await manager.broadcast_to_game({
+            "type": "game_started",
+            "game_id": room_id,
+            "players": [p.name for p in game.players],
+            "starting_bidder": starting_bidder
+        }, room_id)
+
+        # Send initial game state to all players
+        for idx, username in enumerate(user_ids):
+            player_index = idx
+            await manager.send_personal_message({
+                "type": "game_state",
+                "state": {
+                    "game_id": room_id,
+                    "current_trick": [],
+                    "current_player": game.current_player_index,
+                    "your_hand": [
+                        {"suit": c.suit.value, "rank": c.rank.value, "value": c.value}
+                        for c in game.players[player_index].hand
+                    ],
+                    "other_hands": [
+                        len(p.hand) if i != player_index else None
+                        for i, p in enumerate(game.players)
+                    ],
+                    "contract": None,
+                    "trick_number": 0,
+                    "round_complete": False,
+                    "players": [p.name for p in game.players],
+                    "your_player_index": player_index,
+                    "bidding_phase": game.bidding_phase and not game.bidding_complete,
+                    "current_bidder": game.current_bidder_index if game.bidding_phase else None,
+                    "highest_bid": game.highest_bid,
+                    "passes_in_a_row": game.passes_in_a_row
+                }
+            }, username)
+    
     return room.to_dict()
 
 @router.post("/{room_id}/leave")

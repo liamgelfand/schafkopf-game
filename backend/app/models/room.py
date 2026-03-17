@@ -51,9 +51,6 @@ class GameRoom:
     
     def start_game(self):
         """Initialize the game with all players"""
-        if not self.all_ready():
-            raise ValueError("Not all players are ready")
-        
         self.game = Game(self.room_id)
         
         # Add all players (no AI)
