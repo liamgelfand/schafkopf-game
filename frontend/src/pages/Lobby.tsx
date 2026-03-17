@@ -57,7 +57,6 @@ function Lobby() {
         console.log('Room join result:', err)
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Separate effect for polling when in a room
