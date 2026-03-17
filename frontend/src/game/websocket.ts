@@ -14,9 +14,12 @@ export class GameWebSocket {
   connect(onMessage: (message: any) => void) {
     this.onMessageCallback = onMessage
     
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const backendHttpUrl = import.meta.env.VITE_BACKEND_HTTP_URL as string | undefined
+    const baseHttpUrl = backendHttpUrl ?? window.location.origin
+    const protocol = baseHttpUrl.startsWith('https:') ? 'wss:' : 'ws:'
+    const hostAndPort = baseHttpUrl.replace(/^https?:/, '') // -> //host[:port]
     const token = localStorage.getItem('token')
-    const wsUrl = `${protocol}//${window.location.host}/ws/${this.gameId}?token=${encodeURIComponent(token || '')}`
+    const wsUrl = `${protocol}${hostAndPort}/ws/${this.gameId}?token=${encodeURIComponent(token || '')}`
     
     this.ws = new WebSocket(wsUrl)
     
