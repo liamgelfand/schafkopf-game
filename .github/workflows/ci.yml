@@ -91,8 +91,17 @@ jobs:
       - name: Debug installed test deps
         working-directory: backend
         run: |
-          python -c "import pytest; print('pytest', pytest.__version__)"
-          python -c "import pytest_bdd; print('pytest-bdd', pytest_bdd.__version__)"
+          python - << 'EOF'
+          import importlib
+          import pytest
+          print("pytest", pytest.__version__)
+          try:
+              pytest_bdd = importlib.import_module("pytest_bdd")
+              print("pytest_bdd module imported:", pytest_bdd.__name__)
+          except Exception as e:
+              print("FAILED to import pytest_bdd:", repr(e))
+              raise
+          EOF
 
       - name: Run docker E2E tests
         working-directory: backend
