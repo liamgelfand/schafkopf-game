@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createRoom, listRooms, joinRoom, setReady, startGame, getRoom, leaveRoom as leaveRoomAPI } from '../game/api'
+import { useTranslation } from 'react-i18next'
+import { createRoom, listRooms, joinRoom, joinRoomByCode, setReady, startGame, getRoom, leaveRoom as leaveRoomAPI } from '../game/api'
 import './Lobby.css'
 
 interface Player {
@@ -17,7 +18,7 @@ interface GameRoom {
   status: 'waiting' | 'starting' | 'in_progress'
   created_at: string
   is_private?: boolean
-  join_code?: string
+  room_code?: string
 }
 
 interface CurrentUser {
@@ -27,12 +28,14 @@ interface CurrentUser {
 }
 
 function Lobby() {
+  const { t } = useTranslation()
   const [rooms, setRooms] = useState<GameRoom[]>([])
   const [currentRoom, setCurrentRoom] = useState<GameRoom | null>(null)
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [joinCode, setJoinCode] = useState('')
+  const [showJoinByCode, setShowJoinByCode] = useState(false)
+  const [roomCodeInput, setRoomCodeInput] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -42,32 +45,18 @@ function Lobby() {
       return
     }
 
-    // Load user first, then handle room
-    loadCurrentUser().then(() => {
-      loadRooms()
-      
-      // Check if we have a room ID in URL params
-      const urlParams = new URLSearchParams(window.location.search)
-      const roomId = urlParams.get('room')
-      if (roomId && !currentRoom) {
-        // Try to join or get the room
-        joinRoomHandler(roomId).catch(err => {
-          console.log('Room join result:', err)
-          // If join fails, try to get the room directly
-          getRoom(roomId).then(room => {
-            if (room && room.id) {
-              // Ensure players array exists
-              if (!room.players) {
-                room.players = []
-              }
-              setCurrentRoom(room)
-            }
-          }).catch(e => {
-            console.error('Failed to get room:', e)
-          })
-        })
-      }
-    })
+    loadCurrentUser()
+    loadRooms()
+    
+    // Check if we have a room ID in URL params
+    const urlParams = new URLSearchParams(window.location.search)
+    const roomId = urlParams.get('room')
+    if (roomId && !currentRoom) {
+      // Try to join or get the room
+      joinRoomHandler(roomId).catch(err => {
+        console.log('Room join result:', err)
+      })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -91,10 +80,7 @@ function Lobby() {
 
   const loadCurrentUser = async () => {
     const token = localStorage.getItem('token')
-    if (!token) {
-      navigate('/login')
-      return Promise.resolve()
-    }
+    if (!token) return
 
     try {
       const response = await fetch('/api/auth/me', {
@@ -110,16 +96,10 @@ function Lobby() {
           username: userData.username,
           email: userData.email
         })
-      } else {
-        // Token might be invalid
-        localStorage.removeItem('token')
-        navigate('/login')
       }
     } catch (err) {
       console.error('Failed to load current user:', err)
-      // Don't navigate on error - might be network issue
     }
-    return Promise.resolve()
   }
 
   const loadRooms = async () => {
@@ -128,26 +108,20 @@ function Lobby() {
       setRooms(data.rooms || [])
     } catch (err: any) {
       console.error('Failed to load rooms:', err)
-      setRooms([])
-      // Don't set error here - it's not critical if room list fails
+      setError(err.message)
     }
   }
 
   const refreshRoom = async () => {
-    if (!currentRoom || !currentRoom.id) return
+    if (!currentRoom) return
     try {
       const room = await getRoom(currentRoom.id)
       
       // If room was deleted or doesn't exist, clear local state
-      if (!room || !room.id) {
+      if (!room) {
         setCurrentRoom(null)
         await loadRooms()
         return
-      }
-      
-      // Ensure players array exists
-      if (!room.players) {
-        room.players = []
       }
       
       setCurrentRoom(room)
@@ -167,7 +141,7 @@ function Lobby() {
     }
   }
 
-  const createRoomHandler = async (isPrivate: boolean = true) => {
+  const createRoomHandler = async (isPrivate: boolean = false) => {
     setLoading(true)
     setError('')
     try {
@@ -178,59 +152,61 @@ function Lobby() {
       }
 
       const newRoom = await createRoom('Game Room', isPrivate)
-      console.log('Room created:', newRoom)
-      if (newRoom && newRoom.id) {
-        // Ensure players array exists
-        if (!newRoom.players) {
-          newRoom.players = []
-        }
-        setCurrentRoom(newRoom)
-        await loadRooms()
-      } else {
-        console.error('Invalid room response:', newRoom)
-        setError('Invalid room response from server')
-      }
-    } catch (err: any) {
-      console.error('Error creating room:', err)
-      setError(err.message || 'Failed to create room')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const joinRoomHandler = async (roomId?: string, code?: string) => {
-    setLoading(true)
-    setError('')
-    try {
-      const room = await joinRoom(roomId, code)
-      setCurrentRoom(room)
+      setCurrentRoom(newRoom)
       await loadRooms()
-      // Refresh room state after joining
-      if (roomId) {
-        setTimeout(() => refreshRoom(), 500)
-      }
+      // Update URL to include room ID
+      window.history.replaceState({}, '', `?room=${newRoom.id}`)
     } catch (err: any) {
-      if (err.message?.includes('already')) {
-        // If already in room, just fetch the room state
-        if (roomId) {
-          const room = await getRoom(roomId)
-          setCurrentRoom(room)
-        }
-      } else {
-        setError(err.message || 'Failed to join room')
-      }
+      setError(err.message || t('errors.failedToCreateRoom'))
     } finally {
       setLoading(false)
     }
   }
 
   const joinByCodeHandler = async () => {
-    if (!joinCode.trim()) {
-      setError('Please enter a join code')
+    if (!roomCodeInput.trim()) {
+      setError(t('lobby.roomCodeRequired'))
       return
     }
-    await joinRoomHandler(undefined, joinCode.trim().toUpperCase())
-    setJoinCode('')
+
+    setLoading(true)
+    setError('')
+    try {
+      const room = await joinRoomByCode(roomCodeInput.trim().toUpperCase())
+      setCurrentRoom(room)
+      await loadRooms()
+      setShowJoinByCode(false)
+      setRoomCodeInput('')
+      // Update URL to include room ID
+      window.history.replaceState({}, '', `?room=${room.id}`)
+      setTimeout(() => refreshRoom(), 500)
+    } catch (err: any) {
+      setError(err.message || t('errors.failedToJoinRoom'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const joinRoomHandler = async (roomId: string) => {
+    setLoading(true)
+    setError('')
+    try {
+      const room = await joinRoom(roomId)
+      setCurrentRoom(room)
+      await loadRooms()
+      // Refresh room state after joining
+      setTimeout(() => refreshRoom(), 500)
+    } catch (err: any) {
+      if (err.message?.includes('already')) {
+        // If already in room, just fetch the room state
+        const room = await getRoom(roomId)
+        setCurrentRoom(room)
+      } else {
+        setError(err.message || t('errors.failedToJoinRoom'))
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const toggleReady = async () => {
@@ -244,7 +220,7 @@ function Lobby() {
       // Also refresh rooms list to update other players' views
       await loadRooms()
     } catch (err: any) {
-      setError(err.message || 'Failed to set ready')
+      setError(err.message || t('errors.failedToSetReady'))
       // Refresh room state on error
       refreshRoom()
     }
@@ -258,7 +234,7 @@ function Lobby() {
       await startGame(currentRoom.id)
       navigate(`/game?room=${currentRoom.id}`)
     } catch (err: any) {
-      setError(err.message || 'Failed to start game')
+      setError(err.message || t('errors.failedToStartGame'))
     } finally {
       setLoading(false)
     }
@@ -278,87 +254,43 @@ function Lobby() {
         setCurrentRoom(null)
         await loadRooms()
       } else {
-        setError(err.message || 'Failed to leave room')
+        setError(err.message || t('errors.failedToLeaveRoom'))
       }
     } finally {
       setLoading(false)
     }
   }
 
-  if (currentRoom && currentRoom.id) {
-    // Safety check - ensure we have valid room data
-    if (!currentRoom.players) {
-      console.error('Room missing players array:', currentRoom)
-      // Try to refresh the room
-      if (currentRoom.id) {
-        refreshRoom()
-      }
-      return (
-        <div className="lobby-page">
-          <div className="lobby-container">
-            <h1>Loading Room...</h1>
-            <p>Please wait while we load the room data.</p>
-            <button onClick={() => { setCurrentRoom(null); setError(''); }}>Back to Lobby</button>
-          </div>
-        </div>
-      )
-    }
-    
-    // Wait for currentUser to load before showing room actions
-    if (!currentUser) {
-      return (
-        <div className="lobby-page">
-          <div className="lobby-container">
-            <h1>Loading...</h1>
-            <p>Please wait...</p>
-          </div>
-        </div>
-      )
-    }
-    
+  if (currentRoom) {
     const isCreator = currentUser && currentRoom.creator_id === currentUser.id
-    const players = currentRoom.players || []
-    const currentPlayer = players.find(p => 
+    const currentPlayer = currentRoom.players.find(p => 
       currentUser && p.user_id === currentUser.id
     )
-    const allReady = players.length === currentRoom.max_players && 
-                     players.every(p => p.ready)
+    const allReady = currentRoom.players.length === currentRoom.max_players && 
+                     currentRoom.players.every(p => p.ready)
 
     return (
       <div className="lobby-page">
         <div className="lobby-container">
-          <h1>Game Room</h1>
+          <h1>{t('lobby.gameRoom')}</h1>
           {error && <div className="error-message">{error}</div>}
           
-          {currentRoom.is_private && currentRoom.join_code && (
-            <div className="join-code-display">
-              <p>Share this code to invite others:</p>
-              <div className="join-code">{currentRoom.join_code}</div>
-              <button 
-                onClick={() => navigator.clipboard.writeText(currentRoom.join_code || '')}
-                className="copy-code-button"
-              >
-                Copy Code
-              </button>
-            </div>
-          )}
-          
           <div className="room-players">
-            <h3>Players ({players.length}/{currentRoom.max_players})</h3>
+            <h3>{t('common.players')} ({currentRoom.players.length}/{currentRoom.max_players})</h3>
             <div className="players-list">
-              {players.map((player) => (
+              {currentRoom.players.map((player) => (
                 <div key={player.user_id} className="player-item">
                   <span>{player.username}</span>
                   {player.ready ? (
-                    <span className="ready-badge">Ready</span>
+                    <span className="ready-badge">{t('common.ready')}</span>
                   ) : (
-                    <span className="not-ready-badge">Not Ready</span>
+                    <span className="not-ready-badge">{t('common.notReady')}</span>
                   )}
                 </div>
               ))}
-              {Array.from({ length: currentRoom.max_players - players.length }).map((_, i) => (
+              {Array.from({ length: currentRoom.max_players - currentRoom.players.length }).map((_, i) => (
                 <div key={`empty-${i}`} className="player-item empty">
-                  Waiting for player...
+                  {t('lobby.waitingForPlayer')}
                 </div>
               ))}
             </div>
@@ -366,21 +298,40 @@ function Lobby() {
             {import.meta.env.MODE === 'development' && (
               <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.5rem' }}>
                 Debug: Creator ID: {currentRoom.creator_id}, Your ID: {currentUser?.id}, 
-                Is Creator: {isCreator ? 'Yes' : 'No'}, 
-                All Ready: {allReady ? 'Yes' : 'No'} 
-                ({players.filter(p => p.ready).length}/{players.length} ready)
+                Is Creator: {isCreator ? t('common.yes') : t('common.no')}, 
+                All Ready: {allReady ? t('common.yes') : t('common.no')} 
+                ({currentRoom.players.filter(p => p.ready).length}/{currentRoom.players.length} {t('common.ready').toLowerCase()})
               </div>
             )}
           </div>
+
+          {currentRoom.is_private && currentRoom.room_code && (
+            <div className="room-code-display">
+              <h4>{t('lobby.roomCode')}</h4>
+              <div className="room-code-box">
+                <span className="room-code-text">{currentRoom.room_code}</span>
+                <button 
+                  className="copy-code-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(currentRoom.room_code || '')
+                    alert(t('lobby.roomCodeCopied'))
+                  }}
+                >
+                  {t('lobby.copyCode')}
+                </button>
+              </div>
+              <p className="room-code-hint">{t('lobby.shareCodeHint')}</p>
+            </div>
+          )}
 
           <div className="room-actions">
             {currentPlayer && (
               <button 
                 onClick={toggleReady} 
-                className={`ready-button ${currentPlayer.ready ? 'ready' : 'not-ready'}`}
+                className={`ready-button ${currentPlayer.ready ? 'ready' : ''}`}
                 disabled={loading}
               >
-                {currentPlayer.ready ? 'Cancel' : 'Ready Up'}
+                {currentPlayer.ready ? t('common.notReady') : t('common.ready')}
               </button>
             )}
             
@@ -390,12 +341,12 @@ function Lobby() {
                 className="start-game-button"
                 disabled={loading}
               >
-                {loading ? 'Starting...' : 'Start Game'}
+                {loading ? t('common.starting') : t('lobby.startGame')}
               </button>
             )}
             
             <button onClick={leaveRoom} className="leave-button">
-              Leave Room
+              {t('common.leaveRoom')}
             </button>
           </div>
         </div>
@@ -406,142 +357,79 @@ function Lobby() {
   return (
     <div className="lobby-page">
       <div className="lobby-container">
-        <h1>Game Lobby</h1>
-        <p>Join or create a game room</p>
+        <h1>{t('lobby.title')}</h1>
+        <p>{t('lobby.joinOrCreate')}</p>
         
-        {error && <div className="error-message">{error}</div>}
-        
-        <div className="lobby-sections">
-          {/* Private Room Section */}
-          <div className="private-room-section">
-            <div className="section-header">
-              <div className="section-icon">🔒</div>
-              <div>
-                <h2>Create Private Room</h2>
-                <p className="section-description">Create a room with a shareable code</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => createRoomHandler(true)} 
-              className="create-private-button" 
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="button-content">
-                  <span className="spinner"></span>
-                  Creating...
-                </span>
-              ) : (
-                <span className="button-content">
-                  <span className="button-icon">🔒</span>
-                  Create Private Room
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Join by Code Section */}
-          <div className="join-by-code-section">
-            <div className="section-header">
-              <div className="section-icon">🔑</div>
-              <div>
-                <h2>Join with Code</h2>
-                <p className="section-description">Enter a code to join a private room</p>
-              </div>
-            </div>
-            <div className="join-code-content">
-              <div className="join-code-input-group">
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="Enter 6-8 character code"
-                  maxLength={8}
-                  className="join-code-input-field"
-                />
-                <button 
-                  onClick={joinByCodeHandler} 
-                  className="join-code-submit-button" 
-                  disabled={loading || !joinCode.trim()}
-                >
-                  {loading ? 'Joining...' : 'Join Room'}
-                </button>
-              </div>
-              {joinCode && (
-                <div className="code-preview">
-                  <span className="code-preview-label">Code:</span>
-                  <span className="code-preview-value">{joinCode}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Public Room Section */}
-          <div className="public-room-section">
-            <div className="section-header">
-              <div className="section-icon">🌐</div>
-              <div>
-                <h2>Create Public Room</h2>
-                <p className="section-description">Create a room that anyone can join</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => createRoomHandler(false)} 
-              className="create-public-button" 
-              disabled={loading}
-            >
-              {loading ? (
-                <span className="button-content">
-                  <span className="spinner"></span>
-                  Creating...
-                </span>
-              ) : (
-                <span className="button-content">
-                  <span className="button-icon">🌐</span>
-                  Create Public Room
-                </span>
-              )}
-            </button>
-          </div>
+        <div className="room-creation-buttons">
+          <button 
+            onClick={() => createRoomHandler(false)} 
+            className="create-room-button" 
+            disabled={loading}
+          >
+            {loading ? t('common.creating') : t('lobby.createPublicRoom')}
+          </button>
+          <button 
+            onClick={() => createRoomHandler(true)} 
+            className="create-room-button private" 
+            disabled={loading}
+          >
+            {loading ? t('common.creating') : t('lobby.createPrivateRoom')}
+          </button>
+          <button 
+            onClick={() => setShowJoinByCode(!showJoinByCode)} 
+            className="join-by-code-button" 
+            disabled={loading}
+          >
+            {showJoinByCode ? t('lobby.cancel') : t('lobby.joinByCode')}
+          </button>
         </div>
 
+        {showJoinByCode && (
+          <div className="join-by-code-section">
+            <input
+              type="text"
+              placeholder={t('lobby.enterRoomCode')}
+              value={roomCodeInput}
+              onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+              className="room-code-input"
+              maxLength={6}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  joinByCodeHandler()
+                }
+              }}
+            />
+            <button 
+              onClick={joinByCodeHandler} 
+              className="join-code-button"
+              disabled={loading || !roomCodeInput.trim()}
+            >
+              {t('common.join')}
+            </button>
+          </div>
+        )}
+
+        {error && <div className="error-message">{error}</div>}
+        
         <div className="rooms-list">
-          <h3>Available Public Rooms</h3>
+          <h3>{t('lobby.availableRooms')}</h3>
           {rooms.length === 0 ? (
-            <p className="no-rooms">No public rooms available. Create one to start!</p>
+            <p className="no-rooms">{t('lobby.noRoomsAvailable')}</p>
           ) : (
             rooms.map((room) => (
               <div key={room.id} className="room-item">
                 <div className="room-info">
-                  <div className="room-header-row">
-                    <span className="room-name">Game Room</span>
-                    <span className={`room-type-badge ${room.is_private ? 'private' : 'public'}`}>
-                      {room.is_private ? '🔒 Private' : '🌐 Public'}
-                    </span>
-                  </div>
+                  <span className="room-name">{t('lobby.room')} {room.id.substring(0, 8)}</span>
                   <span className="room-players-count">
-                    {(room.players || []).length}/{room.max_players} players
-                    {room.status === 'in_progress' && ' • In Progress'}
+                    {room.players.length}/{room.max_players} {t('common.players')}
                   </span>
-                  {room.players && room.players.length > 0 && (
-                    <div className="room-players-preview">
-                      {room.players.slice(0, 3).map(p => (
-                        <span key={p.user_id} className="player-preview-tag">
-                          {p.username}
-                        </span>
-                      ))}
-                      {room.players.length > 3 && (
-                        <span className="player-preview-tag">+{room.players.length - 3}</span>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <button 
                   onClick={() => joinRoomHandler(room.id)} 
                   className="join-button"
-                  disabled={(room.players || []).length >= room.max_players || loading || room.status === 'in_progress'}
+                  disabled={room.players.length >= room.max_players || loading}
                 >
-                  {room.status === 'in_progress' ? 'In Progress' : (room.players || []).length >= room.max_players ? 'Full' : 'Join'}
+                  {t('common.join')}
                 </button>
               </div>
             ))

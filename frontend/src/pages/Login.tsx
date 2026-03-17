@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import './Login.css'
 
 function Login() {
+  const { t } = useTranslation()
   const [isLogin, setIsLogin] = useState(true)
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -35,7 +37,7 @@ function Login() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.detail || 'Authentication failed')
+        throw new Error(data.detail || t('login.authenticationFailed'))
       }
 
       // Both login and register return token
@@ -43,10 +45,10 @@ function Login() {
         localStorage.setItem('token', data.access_token)
         navigate('/')
       } else {
-        throw new Error('No access token received')
+        throw new Error(t('login.noAccessToken'))
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred')
+      setError(err.message || t('login.errorOccurred'))
     } finally {
       setLoading(false)
     }
@@ -55,25 +57,25 @@ function Login() {
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1>Schafkopf</h1>
+        <h1>{t('login.title')}</h1>
         <div className="auth-tabs">
           <button
             className={isLogin ? 'active' : ''}
             onClick={() => setIsLogin(true)}
           >
-            Login
+            {t('login.login')}
           </button>
           <button
             className={!isLogin ? 'active' : ''}
             onClick={() => setIsLogin(false)}
           >
-            Register
+            {t('login.register')}
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">{t('login.username')}</label>
             <input
               id="username"
               type="text"
@@ -86,7 +88,7 @@ function Login() {
 
           {!isLogin && (
             <div className="form-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="email">{t('login.email')}</label>
               <input
                 id="email"
                 type="email"
@@ -99,7 +101,7 @@ function Login() {
           )}
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">{t('login.password')}</label>
             <input
               id="password"
               type="password"
@@ -113,12 +115,12 @@ function Login() {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" className="submit-button" disabled={loading}>
-            {loading ? 'Loading...' : isLogin ? 'Login' : 'Register'}
+            {loading ? t('common.loading') : isLogin ? t('login.login') : t('login.register')}
           </button>
         </form>
 
         <Link to="/" className="back-link">
-          Back to Home
+          {t('common.backToHome')}
         </Link>
       </div>
     </div>

@@ -16,7 +16,37 @@
     "bid": "Bid",
     "makeBid": "Make Bid",
     "yourTurn": "Your Turn",
-    "waiting": "Waiting..."
+    "waiting": "Waiting...",
+    "backToHome": "Back to Home",
+    "loading": "Loading...",
+    "creating": "Creating...",
+    "starting": "Starting...",
+    "join": "Join",
+    "leave": "Leave",
+    "leaveRoom": "Leave Room",
+    "players": "Players",
+    "gameRoom": "Game Room",
+    "inProgress": "In Progress",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "home": {
+    "title": "Welcome to Schafkopf",
+    "subtitle": "Traditional German Card Game",
+    "welcomeMessage": "Please login or register to start playing",
+    "loginRegister": "Login / Register"
+  },
+  "login": {
+    "title": "Schafkopf",
+    "login": "Login",
+    "register": "Register",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Submit",
+    "authenticationFailed": "Authentication failed",
+    "errorOccurred": "An error occurred",
+    "noAccessToken": "No access token received"
   },
   "game": {
     "title": "Schafkopf",
@@ -32,6 +62,8 @@
     "contract": "Contract: {{contract}}",
     "trick": "Trick {{current}}/8",
     "noCardsPlayed": "No cards played yet",
+    "notLoggedIn": "Not logged in",
+    "noRoomId": "No room ID provided",
     "contracts": {
       "rufer": "Rufer",
       "wenz": "Wenz",
@@ -42,22 +74,68 @@
       "gras": "Gras",
       "herz": "Herz",
       "schellen": "Schellen"
-    }
+    },
+    "trumpSuits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    },
+    "calledAce": "Called Ace",
+    "selectTrump": "Select Trump Suit",
+    "selectCalledAce": "Select Called Ace"
   },
   "lobby": {
     "title": "Game Lobby",
-    "players": "Players",
-    "waitingForPlayers": "Waiting for players...",
-    "allReady": "All players ready!",
-    "gameStarting": "Game starting..."
+    "gameRoom": "Game Room",
+    "joinOrCreate": "Join or create a game room",
+    "createNewRoom": "Create New Room",
+    "createPublicRoom": "Create Public Room",
+    "createPrivateRoom": "Create Private Room",
+    "joinByCode": "Join by Room Code",
+    "cancel": "Cancel",
+    "enterRoomCode": "Enter Room Code",
+    "roomCodeRequired": "Room code is required",
+    "roomCode": "Room Code",
+    "copyCode": "Copy",
+    "roomCodeCopied": "Room code copied to clipboard!",
+    "shareCodeHint": "Share this code with friends to let them join",
+    "availableRooms": "Available Rooms",
+    "noRoomsAvailable": "No rooms available. Create one to start!",
+    "waitingForPlayer": "Waiting for player...",
+    "startGame": "Start Game",
+    "room": "Room"
   },
   "dashboard": {
-    "title": "Welcome to Schafkopf!",
-    "quickActions": "Quick Actions",
+    "title": "Schafkopf Dashboard",
+    "quickStart": "Quick Start",
+    "createNewGame": "Create New Game",
+    "browseAllGames": "Browse All Games",
     "activeLobbies": "Active Lobbies",
-    "noLobbies": "No active lobbies. Create one!",
-    "refresh": "Refresh Lobbies",
-    "yourGame": "Your Game"
+    "noActiveLobbies": "No active lobbies. Create a game to get started!",
+    "quickLinks": "Quick Links",
+    "viewProfile": "View your profile and stats",
+    "viewStats": "View your game statistics",
+    "learnToPlay": "Learn how to play",
+    "failedToCreateRoom": "Failed to create room",
+    "failedToJoinRoom": "Failed to join room"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "gamePreferences": "Game Preferences",
+    "cardSort": "Card Sort",
+    "bySuit": "By Suit",
+    "byRank": "By Rank",
+    "trumpsFirst": "Trumps First",
+    "autoSortCards": "Auto-sort Cards",
+    "notifications": "Notifications",
+    "soundEnabled": "Sound Enabled",
+    "notificationsEnabled": "Notifications Enabled",
+    "language": "Language"
   },
   "errors": {
     "notLoggedIn": "Not logged in",
@@ -65,11 +143,11 @@
     "notYourTurn": "Not your turn",
     "invalidBid": "Invalid bid",
     "bidTooLow": "Your bid is too low",
-    "cannotPass": "Cannot pass"
+    "cannotPass": "Cannot pass",
+    "failedToCreateRoom": "Failed to create room",
+    "failedToJoinRoom": "Failed to join room",
+    "failedToSetReady": "Failed to set ready",
+    "failedToStartGame": "Failed to start game",
+    "failedToLeaveRoom": "Failed to leave room"
   }
 }
-
-
-
-
-

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import './SettingsSidebar.css'
 
 interface SettingsSidebarProps {
@@ -7,13 +8,14 @@ interface SettingsSidebarProps {
 }
 
 function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
+  const { t, i18n } = useTranslation()
   const [preferences, setPreferences] = useState({
     theme: 'light',
     card_sort: 'suit',
     auto_sort_cards: true,
     sound_enabled: true,
     notifications_enabled: true,
-    language: 'en'
+    language: i18n.language || 'en'
   })
 
   useEffect(() => {
@@ -22,12 +24,22 @@ function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
 
   const loadPreferences = () => {
     const saved = localStorage.getItem('userPreferences')
+    const savedLanguage = localStorage.getItem('language')
     if (saved) {
       try {
-        setPreferences(JSON.parse(saved))
+        const prefs = JSON.parse(saved)
+        setPreferences(prefs)
+        // Sync language with i18n
+        if (prefs.language && prefs.language !== i18n.language) {
+          i18n.changeLanguage(prefs.language)
+        }
       } catch (err) {
         console.error('Failed to load preferences:', err)
       }
+    } else if (savedLanguage) {
+      // If no preferences but language is set, use it
+      setPreferences(prev => ({ ...prev, language: savedLanguage }))
+      i18n.changeLanguage(savedLanguage)
     }
   }
 
@@ -35,6 +47,12 @@ function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
     const newPrefs = { ...preferences, [key]: value }
     setPreferences(newPrefs)
     localStorage.setItem('userPreferences', JSON.stringify(newPrefs))
+    
+    // If language changed, update i18n
+    if (key === 'language') {
+      i18n.changeLanguage(value)
+      localStorage.setItem('language', value)
+    }
   }
 
   if (!isOpen) return null
@@ -44,36 +62,36 @@ function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
       <div className="settings-overlay" onClick={onClose} />
       <div className="settings-sidebar">
         <div className="settings-header">
-          <h2>Settings</h2>
+          <h2>{t('settings.title')}</h2>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
 
         <div className="settings-content">
           <section className="settings-section">
-            <h3>Appearance</h3>
+            <h3>{t('settings.appearance')}</h3>
             <div className="setting-item">
-              <label>Theme</label>
+              <label>{t('settings.theme')}</label>
               <select
                 value={preferences.theme}
                 onChange={(e) => updatePreference('theme', e.target.value)}
               >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
+                <option value="light">{t('settings.light')}</option>
+                <option value="dark">{t('settings.dark')}</option>
               </select>
             </div>
           </section>
 
           <section className="settings-section">
-            <h3>Game Preferences</h3>
+            <h3>{t('settings.gamePreferences')}</h3>
             <div className="setting-item">
-              <label>Card Sort</label>
+              <label>{t('settings.cardSort')}</label>
               <select
                 value={preferences.card_sort}
                 onChange={(e) => updatePreference('card_sort', e.target.value)}
               >
-                <option value="suit">By Suit</option>
-                <option value="rank">By Rank</option>
-                <option value="trump">Trumps First</option>
+                <option value="suit">{t('settings.bySuit')}</option>
+                <option value="rank">{t('settings.byRank')}</option>
+                <option value="trump">{t('settings.trumpsFirst')}</option>
               </select>
             </div>
             <div className="setting-item">
@@ -83,13 +101,13 @@ function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
                   checked={preferences.auto_sort_cards}
                   onChange={(e) => updatePreference('auto_sort_cards', e.target.checked)}
                 />
-                Auto-sort Cards
+                {t('settings.autoSortCards')}
               </label>
             </div>
           </section>
 
           <section className="settings-section">
-            <h3>Notifications</h3>
+            <h3>{t('settings.notifications')}</h3>
             <div className="setting-item">
               <label>
                 <input
@@ -97,7 +115,7 @@ function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
                   checked={preferences.sound_enabled}
                   onChange={(e) => updatePreference('sound_enabled', e.target.checked)}
                 />
-                Sound Enabled
+                {t('settings.soundEnabled')}
               </label>
             </div>
             <div className="setting-item">
@@ -107,21 +125,24 @@ function SettingsSidebar({ isOpen, onClose }: SettingsSidebarProps) {
                   checked={preferences.notifications_enabled}
                   onChange={(e) => updatePreference('notifications_enabled', e.target.checked)}
                 />
-                Notifications Enabled
+                {t('settings.notificationsEnabled')}
               </label>
             </div>
           </section>
 
           <section className="settings-section">
-            <h3>Language</h3>
+            <h3>{t('settings.language')}</h3>
             <div className="setting-item">
-              <label>Language</label>
+              <label>{t('settings.language')}</label>
               <select
                 value={preferences.language}
                 onChange={(e) => updatePreference('language', e.target.value)}
               >
                 <option value="en">English</option>
                 <option value="de">Deutsch</option>
+                <option value="fr">Français</option>
+                <option value="es">Español</option>
+                <option value="zh">中文</option>
               </select>
             </div>
           </section>

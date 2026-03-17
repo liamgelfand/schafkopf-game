@@ -23,7 +23,7 @@ class TestAuthAPI:
             json={
                 "username": "newuser",
                 "email": "newuser@example.com",
-                "password": "securepass123"
+                "password": "securepassword123"
             }
         )
         assert response.status_code == 201  # 201 Created is correct for registration

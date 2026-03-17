@@ -16,7 +16,37 @@
     "bid": "Bieten",
     "makeBid": "Bieten",
     "yourTurn": "Ihr Zug",
-    "waiting": "Warten..."
+    "waiting": "Warten...",
+    "backToHome": "Zurück zur Startseite",
+    "loading": "Laden...",
+    "creating": "Erstellen...",
+    "starting": "Startet...",
+    "join": "Beitreten",
+    "leave": "Verlassen",
+    "leaveRoom": "Raum verlassen",
+    "players": "Spieler",
+    "gameRoom": "Spielraum",
+    "inProgress": "Läuft",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "home": {
+    "title": "Willkommen bei Schafkopf",
+    "subtitle": "Traditionelles deutsches Kartenspiel",
+    "welcomeMessage": "Bitte melden Sie sich an oder registrieren Sie sich, um zu spielen",
+    "loginRegister": "Anmelden / Registrieren"
+  },
+  "login": {
+    "title": "Schafkopf",
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "username": "Benutzername",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "submit": "Absenden",
+    "authenticationFailed": "Authentifizierung fehlgeschlagen",
+    "errorOccurred": "Ein Fehler ist aufgetreten",
+    "noAccessToken": "Kein Zugriffstoken erhalten"
   },
   "game": {
     "title": "Schafkopf",
@@ -32,6 +62,8 @@
     "contract": "Kontrakt: {{contract}}",
     "trick": "Stich {{current}}/8",
     "noCardsPlayed": "Noch keine Karten gespielt",
+    "notLoggedIn": "Nicht angemeldet",
+    "noRoomId": "Keine Raum-ID angegeben",
     "contracts": {
       "rufer": "Rufer",
       "wenz": "Wenz",
@@ -42,22 +74,68 @@
       "gras": "Gras",
       "herz": "Herz",
       "schellen": "Schellen"
-    }
+    },
+    "trumpSuits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    },
+    "calledAce": "Gerufenes Ass",
+    "selectTrump": "Trumpffarbe wählen",
+    "selectCalledAce": "Gerufenes Ass wählen"
   },
   "lobby": {
     "title": "Spiel-Lobby",
-    "players": "Spieler",
-    "waitingForPlayers": "Warten auf Spieler...",
-    "allReady": "Alle Spieler bereit!",
-    "gameStarting": "Spiel startet..."
+    "gameRoom": "Spielraum",
+    "joinOrCreate": "Spielraum beitreten oder erstellen",
+    "createNewRoom": "Neuen Raum erstellen",
+    "createPublicRoom": "Öffentlichen Raum erstellen",
+    "createPrivateRoom": "Privaten Raum erstellen",
+    "joinByCode": "Mit Raumcode beitreten",
+    "cancel": "Abbrechen",
+    "enterRoomCode": "Raumcode eingeben",
+    "roomCodeRequired": "Raumcode ist erforderlich",
+    "roomCode": "Raumcode",
+    "copyCode": "Kopieren",
+    "roomCodeCopied": "Raumcode in Zwischenablage kopiert!",
+    "shareCodeHint": "Teilen Sie diesen Code mit Freunden, damit sie beitreten können",
+    "availableRooms": "Verfügbare Räume",
+    "noRoomsAvailable": "Keine Räume verfügbar. Erstellen Sie einen, um zu beginnen!",
+    "waitingForPlayer": "Warten auf Spieler...",
+    "startGame": "Spiel starten",
+    "room": "Raum"
   },
   "dashboard": {
-    "title": "Willkommen bei Schafkopf!",
-    "quickActions": "Schnellaktionen",
+    "title": "Schafkopf Dashboard",
+    "quickStart": "Schnellstart",
+    "createNewGame": "Neues Spiel erstellen",
+    "browseAllGames": "Alle Spiele durchsuchen",
     "activeLobbies": "Aktive Lobbys",
-    "noLobbies": "Keine aktiven Lobbys. Erstellen Sie eines!",
-    "refresh": "Lobbys aktualisieren",
-    "yourGame": "Ihr Spiel"
+    "noActiveLobbies": "Keine aktiven Lobbys. Erstellen Sie ein Spiel, um zu beginnen!",
+    "quickLinks": "Schnelllinks",
+    "viewProfile": "Ihr Profil und Statistiken anzeigen",
+    "viewStats": "Ihre Spielstatistiken anzeigen",
+    "learnToPlay": "Lernen Sie zu spielen",
+    "failedToCreateRoom": "Raum konnte nicht erstellt werden",
+    "failedToJoinRoom": "Raum konnte nicht beigetreten werden"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "appearance": "Erscheinungsbild",
+    "theme": "Design",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "gamePreferences": "Spieleinstellungen",
+    "cardSort": "Kartensortierung",
+    "bySuit": "Nach Farbe",
+    "byRank": "Nach Rang",
+    "trumpsFirst": "Trümpfe zuerst",
+    "autoSortCards": "Karten automatisch sortieren",
+    "notifications": "Benachrichtigungen",
+    "soundEnabled": "Ton aktiviert",
+    "notificationsEnabled": "Benachrichtigungen aktiviert",
+    "language": "Sprache"
   },
   "errors": {
     "notLoggedIn": "Nicht angemeldet",
@@ -65,11 +143,11 @@
     "notYourTurn": "Nicht Ihr Zug",
     "invalidBid": "Ungültiges Gebot",
     "bidTooLow": "Ihr Gebot ist zu niedrig",
-    "cannotPass": "Kann nicht passen"
+    "cannotPass": "Kann nicht passen",
+    "failedToCreateRoom": "Raum konnte nicht erstellt werden",
+    "failedToJoinRoom": "Raum konnte nicht beigetreten werden",
+    "failedToSetReady": "Bereitschaft konnte nicht gesetzt werden",
+    "failedToStartGame": "Spiel konnte nicht gestartet werden",
+    "failedToLeaveRoom": "Raum konnte nicht verlassen werden"
   }
 }
-
-
-
-
-

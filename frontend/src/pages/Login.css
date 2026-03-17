@@ -39,7 +39,7 @@
 
 .auth-tabs button {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.75rem 1rem;
   background: transparent;
   border: none;
   border-bottom: 3px solid transparent;

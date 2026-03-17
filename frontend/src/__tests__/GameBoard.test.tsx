@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, waitFor, createMockToken } from './test-utils'
+import { render, screen, waitFor } from '@testing-library/react'
+import { BrowserRouter } from 'react-router-dom'
 import GameBoard from '../components/GameBoard'
+import { GameWebSocket } from '../game/websocket'
+
+// Create a valid JWT token mock (header.payload.signature)
+const createMockToken = (username: string = 'testuser') => {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const payload = btoa(JSON.stringify({ sub: username, exp: Date.now() / 1000 + 3600 }))
+  const signature = 'mock-signature'
+  return `${header}.${payload}.${signature}`
+}
 
 // Mock WebSocket class
 class MockWebSocket {
@@ -51,20 +61,16 @@ vi.mock('../game/websocket', () => {
       connect(onMessage: (message: any) => void) {
         this.onMessageCallback = onMessage
         globalMessageCallback = onMessage
-        // Simulate connection immediately
-        // The component will show loading state until it receives a message
+        // Simulate connection and initial state request
+        setTimeout(() => {
+          if (globalMessageCallback) {
+            globalMessageCallback({ type: 'game_not_ready' })
+          }
+        }, 50)
       }
 
       send(message: any) {
         // Mock send - can be used to verify calls
-        // If get_state is requested, simulate a response
-        if (message.type === 'get_state') {
-          setTimeout(() => {
-            if (globalMessageCallback) {
-              globalMessageCallback({ type: 'game_not_ready' })
-            }
-          }, 50)
-        }
       }
 
       playCard(card: { suit: string; rank: string }) {
@@ -105,13 +111,11 @@ if (typeof window !== 'undefined') {
 
 describe('GameBoard', () => {
   beforeEach(() => {
-    // Clear localStorage and set token before each test
+    // Clear localStorage
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.clear()
       window.localStorage.setItem('token', createMockToken('testuser'))
     }
-    // Reset global message callback
-    globalMessageCallback = null
     vi.clearAllMocks()
   })
 
@@ -119,43 +123,39 @@ describe('GameBoard', () => {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.clear()
     }
-    globalMessageCallback = null
   })
 
   it('should display loading state initially', async () => {
     // Set up room ID in URL
     window.history.pushState({}, '', `?room=test-room`)
     
-    // Set token in localStorage before rendering
-    window.localStorage.setItem('token', createMockToken('testuser'))
-    
-    render(<GameBoard />)
+    render(
+      <BrowserRouter>
+        <GameBoard />
+      </BrowserRouter>
+    )
     
     // Component should show loading state initially
-    // The component shows "Connecting to game..." when loading is true
-    const loadingText = screen.getByText(/Connecting to game/i)
-    expect(loadingText).toBeTruthy()
+    expect(screen.getByText(/Connecting to game/i)).toBeTruthy()
   })
 
   it('should display player names correctly', async () => {
     // Set up room ID in URL
     window.history.pushState({}, '', `?room=test-room-123`)
     
-    // Set token in localStorage before rendering
-    window.localStorage.setItem('token', createMockToken('testuser'))
+    render(
+      <BrowserRouter>
+        <GameBoard />
+      </BrowserRouter>
+    )
     
-    render(<GameBoard />)
-    
-    // Wait for component to initialize (should show loading, not error)
+    // Wait for component to initialize
     await waitFor(() => {
-      const errorText = screen.queryByText(/Not logged in/i)
-      expect(errorText).toBeNull()
-    }, { timeout: 1000 })
+      expect(screen.queryByText(/Connecting to game/i) || screen.queryByText(/Waiting for game/i)).toBeTruthy()
+    }, { timeout: 500 })
     
     // Simulate receiving game state message
-    // Use a small delay to ensure the component is ready
-    await new Promise(resolve => setTimeout(resolve, 150))
-    
+    const { simulateWebSocketMessage } = await import('./GameBoard.test')
     simulateWebSocketMessage({
       type: 'game_state',
       state: {
@@ -182,9 +182,7 @@ describe('GameBoard', () => {
       // Check for any player name from the array
       const player1Text = screen.queryByText(/player1/i)
       const player2Text = screen.queryByText(/player2/i)
-      const player3Text = screen.queryByText(/player3/i)
-      const player4Text = screen.queryByText(/player4/i)
-      expect(player1Text || player2Text || player3Text || player4Text).toBeTruthy()
+      expect(player1Text || player2Text).toBeTruthy()
     }, { timeout: 2000 })
   })
 })

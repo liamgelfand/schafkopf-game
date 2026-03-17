@@ -29,8 +29,6 @@ class Game:
         self.highest_bid: Optional[dict] = None  # {contract_type, trump_suit, called_ace, bidder_index}
         self.passes_in_a_row: int = 0
         self.bidding_complete: bool = False
-        self.bids_made: int = 0  # Track how many players have bid/passed (max 4, one round)
-        self.initial_bidder_index: int = 0  # Track starting bidder for reshuffle logic
     
     def add_player(self, name: str, is_ai: bool = False):
         """Add a player to the game"""
@@ -56,14 +54,10 @@ class Game:
             self.contract = RuferContract(declarer_index, called_ace_suit)
             self.partner_index = self.contract.find_partner(self.players)
         elif contract_type == "Wenz":
-            # Wenz can be regular (no suit) or suited (with trump_suit)
             self.contract = WenzContract(declarer_index)
-            if trump_suit:
-                self.trump_suit = trump_suit  # Suited Wenz
         elif contract_type == "Solo":
-            # Solo defaults to Hearts if no suit specified
             if trump_suit is None:
-                trump_suit = Suit.HERZ
+                raise ValueError("Solo contract requires trump_suit")
             self.contract = SoloContract(declarer_index, trump_suit)
             self.trump_suit = trump_suit
         else:
@@ -80,9 +74,8 @@ class Game:
         
         # Validate the play
         led_suit = self.current_trick[0].suit if self.current_trick else None
-        led_card = self.current_trick[0] if self.current_trick else None
         
-        if not is_valid_play(card, player, led_suit, self.contract_type, self.trump_suit, led_card):
+        if not is_valid_play(card, player, led_suit, self.contract_type, self.trump_suit):
             return False
         
         # Remove card from hand and add to trick
@@ -143,66 +136,33 @@ class Game:
         
         return calculate_round_score(self.contract, self.players, self.all_tricks)
     
-    def get_contract_rank(self, contract_type: str, trump_suit: Optional[Suit] = None, is_suited: bool = False) -> int:
-        """
-        Get the rank/priority of a contract (higher = better)
-        Contract hierarchy (lowest to highest):
-        1. Rufer
-        2. Wenz (Ober as trumps, no suit)
-        3. Suited Wenz (Ober as trumps, with suit)
-        4. Solo (all suits equal value, order matters if same type)
-        """
+    def get_contract_rank(self, contract_type: str, trump_suit: Optional[Suit] = None) -> int:
+        """Get the rank/priority of a contract (higher = better)"""
         if contract_type == "Rufer":
             return 1
         elif contract_type == "Wenz":
-            if is_suited:
-                return 3  # Suited Wenz
-            else:
-                return 2  # Regular Wenz
+            return 2
         elif contract_type == "Solo":
-            return 4  # All Solo suits are equal value
+            if trump_suit == Suit.EICHEL:
+                return 3
+            elif trump_suit == Suit.GRAS:
+                return 4
+            elif trump_suit == Suit.HERZ:
+                return 5
+            elif trump_suit == Suit.SCHELLEN:
+                return 6
         return 0
     
     def make_bid(self, player_index: int, contract_type: str, trump_suit: Optional[Suit] = None, called_ace: Optional[Suit] = None) -> bool:
-        """
-        Make a bid during the bidding phase
-        
-        Contract types:
-        - Rufer: Requires called_ace (must NOT be in player's hand)
-        - Wenz: Ober as trumps, no suit
-        - Suited Wenz: Ober as trumps, with trump_suit
-        - Solo: Requires trump_suit (all suits equal value)
-        """
+        """Make a bid during the bidding phase"""
         if not self.bidding_phase or self.bidding_complete:
             return False
         
         if player_index != self.current_bidder_index:
             return False
         
-        # Validate contract requirements
-        if contract_type == "Rufer":
-            if called_ace is None:
-                return False
-            # Validate called ace is NOT in player's hand
-            player = self.players[player_index]
-            for card in player.hand:
-                if card.rank.value == "Ace" and card.suit == called_ace:
-                    return False  # Called ace cannot be in player's hand
-        elif contract_type == "Wenz":
-            # Wenz can be with or without suit (trump_suit indicates suited)
-            pass
-        elif contract_type == "Solo":
-            # Solo can be bid without suit (defaults to Hearts)
-            # trump_suit can be None, will default to Hearts in set_contract
-            pass
-        else:
-            return False  # Unknown contract type
-        
-        # Determine if this is a suited Wenz
-        is_suited_wenz = contract_type == "Wenz" and trump_suit is not None
-        
         # Check if bid is higher than current highest
-        bid_rank = self.get_contract_rank(contract_type, trump_suit, is_suited_wenz)
+        bid_rank = self.get_contract_rank(contract_type, trump_suit)
         if self.highest_bid:
             # Convert string back to Suit enum for comparison
             highest_trump = None
@@ -211,20 +171,11 @@ class Game:
                     highest_trump = Suit(self.highest_bid["trump_suit"])
                 except (ValueError, KeyError):
                     pass
-            
-            highest_contract = self.highest_bid["contract_type"]
-            highest_is_suited = highest_contract == "Wenz" and highest_trump is not None
             highest_rank = self.get_contract_rank(
-                highest_contract,
-                highest_trump,
-                highest_is_suited
+                self.highest_bid["contract_type"],
+                highest_trump
             )
-            
-            # If same rank (e.g., both Solo), first bidder wins (order matters)
-            if bid_rank < highest_rank:
-                return False  # Bid is too low
-            elif bid_rank == highest_rank:
-                # Same contract type - first bidder wins, cannot override
+            if bid_rank <= highest_rank:
                 return False
         
         # Set as highest bid - convert Suit enums to strings for JSON serialization
@@ -235,23 +186,14 @@ class Game:
             "bidder_index": player_index
         }
         self.passes_in_a_row = 0
-        self.bids_made += 1
         
         # Move to next player
         self.current_bidder_index = (self.current_bidder_index + 1) % len(self.players)
         
-        # Check if we've gone around once (all 4 players have bid/passed)
-        if self.bids_made >= 4:
-            # Bidding round complete - end bidding phase
-            self.end_bidding_phase()
-        
         return True
     
     def pass_bid(self, player_index: int) -> bool:
-        """
-        Pass during the bidding phase
-        Bidding goes around once (4 players). If all pass with no bid, reshuffle.
-        """
+        """Pass during the bidding phase"""
         if not self.bidding_phase or self.bidding_complete:
             return False
         
@@ -259,27 +201,24 @@ class Game:
             return False
         
         self.passes_in_a_row += 1
-        self.bids_made += 1
+        
+        # If 3 passes in a row AND there's a highest bid, end bidding
+        # If everyone passes (4 passes) with no bid, we'll handle that case
+        if self.passes_in_a_row >= 3:
+            if self.highest_bid:
+                # Someone bid and then 3 passes - end bidding
+                self.end_bidding_phase()
+                return True
+            else:
+                # Everyone passed with no bids - for now, continue (should redeal in real game)
+                # Reset passes and continue
+                self.passes_in_a_row = 0
+                # Move to next player
+                self.current_bidder_index = (self.current_bidder_index + 1) % len(self.players)
+                return True
         
         # Move to next player
         self.current_bidder_index = (self.current_bidder_index + 1) % len(self.players)
-        
-        # Check if we've gone around once (all 4 players have bid/passed)
-        if self.bids_made >= 4:
-            if self.highest_bid:
-                # Someone bid - end bidding phase
-                self.end_bidding_phase()
-            else:
-                # All 4 players passed with no bid - need to reshuffle
-                # This will be handled by the caller (rooms.py)
-                self.bidding_complete = True
-                self.bidding_phase = False
-                # Signal that reshuffle is needed
-                return True  # Return True to indicate all passed
-        
-        # If 3 passes in a row AND there's a highest bid, end bidding
-        if self.passes_in_a_row >= 3 and self.highest_bid:
-            self.end_bidding_phase()
         
         return True
     

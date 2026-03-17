@@ -56,6 +56,16 @@ export async function createRoom(name?: string, isPrivate?: boolean): Promise<an
   return response.json()
 }
 
+export async function joinRoomByCode(roomCode: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/rooms/join-by-code`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ room_code: roomCode }),
+  })
+  if (!response.ok) throw new Error('Failed to join room by code')
+  return response.json()
+}
+
 export async function listRooms(): Promise<any> {
   const response = await fetch(`${API_BASE_URL}/rooms/list`, {
     headers: getAuthHeaders(),
@@ -64,11 +74,10 @@ export async function listRooms(): Promise<any> {
   return response.json()
 }
 
-export async function joinRoom(roomId?: string, joinCode?: string): Promise<any> {
-  const response = await fetch(`${API_BASE_URL}/rooms/join`, {
+export async function joinRoom(roomId: string): Promise<any> {
+  const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/join`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ room_id: roomId, join_code: joinCode }),
   })
   if (!response.ok) throw new Error('Failed to join room')
   return response.json()

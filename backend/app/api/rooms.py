@@ -17,8 +17,7 @@ class CreateRoomRequest(BaseModel):
     is_private: bool = False
 
 class JoinRoomRequest(BaseModel):
-    room_id: str = None
-    join_code: str = None
+    room_id: str
 
 class ReadyRequest(BaseModel):
     ready: bool
@@ -32,9 +31,18 @@ async def create_room(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new game room (public or private)"""
+    """Create a new game room"""
+    import random
+    import string
+    
     room_id = str(uuid.uuid4())
-    room = GameRoom(room_id, current_user.id, current_user.username, is_private=request.is_private)
+    
+    # Generate room code for private rooms (6 characters, alphanumeric)
+    room_code = None
+    if request.is_private:
+        room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    
+    room = GameRoom(room_id, current_user.id, current_user.username, request.is_private, room_code)
     room.add_player(current_user.id, current_user.username)
     rooms[room_id] = room
     
@@ -44,37 +52,41 @@ async def create_room(
 async def list_rooms(
     current_user: User = Depends(get_current_active_user)
 ):
-    """List all available public rooms (private rooms are not listed)"""
+    """List all available rooms"""
+    # Clean up empty rooms first
+    empty_room_ids = [
+        room_id for room_id, room in rooms.items()
+        if len(room.players) == 0 and room.status == "waiting"
+    ]
+    for room_id in empty_room_ids:
+        if room_id in manager.games:
+            del manager.games[room_id]
+        if room_id in manager.game_rooms:
+            del manager.game_rooms[room_id]
+        del rooms[room_id]
+    
+    # Return only public rooms that are waiting and have space (exclude private rooms)
     available_rooms = [
         room.to_dict() 
         for room in rooms.values() 
         if room.status == "waiting" 
+        and len(room.players) > 0 
         and len(room.players) < room.max_players
-        and not room.is_private  # Only show public rooms
+        and not room.is_private  # Only show public rooms in list
     ]
     return {"rooms": available_rooms}
 
-@router.post("/join")
+@router.post("/{room_id}/join")
 async def join_room(
-    request: JoinRoomRequest,
+    room_id: str,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Join a game room by room_id or join_code"""
-    room = None
+    """Join a game room"""
+    if room_id not in rooms:
+        raise HTTPException(status_code=404, detail="Room not found")
     
-    if request.room_id:
-        # Join by room ID
-        if request.room_id not in rooms:
-            raise HTTPException(status_code=404, detail="Room not found")
-        room = rooms[request.room_id]
-    elif request.join_code:
-        # Join by join code (for private rooms)
-        room = next((r for r in rooms.values() if r.join_code == request.join_code.upper()), None)
-        if not room:
-            raise HTTPException(status_code=404, detail="Room not found with that join code")
-    else:
-        raise HTTPException(status_code=400, detail="Either room_id or join_code must be provided")
+    room = rooms[room_id]
     
     if room.status != "waiting":
         raise HTTPException(status_code=400, detail="Room is not accepting players")
@@ -153,7 +165,6 @@ async def set_ready(
         # Randomly select starting player for bidding
         game.current_bidder_index = random.randint(0, 3)
         game.current_player_index = game.current_bidder_index
-        game.initial_bidder_index = game.current_bidder_index  # Track for reshuffle logic
         
         # Map user IDs to player indices - IMPORTANT: Use the order players were added to game
         user_ids = [p["username"] for p in room.players]
@@ -171,14 +182,35 @@ async def set_ready(
             "starting_bidder": game.current_bidder_index
         }, room_id)
         
-        # Send initial game state to all players using the proper function
-        # Import here to avoid circular import issues
-        from app.api.websocket import send_game_state_to_user
+        # Send initial game state to all players
         for idx, username in enumerate(user_ids):
             player_index = idx  # Use index directly since we know the order
-            print(f"Sending initial game state to {username} at index {player_index}")
-            # Use the send_game_state_to_user function which handles everything correctly
-            await send_game_state_to_user(room_id, username, player_index=player_index)
+            print(f"Sending game state to {username} at index {player_index}")
+            await manager.send_personal_message({
+                "type": "game_state",
+                "state": {
+                    "game_id": room_id,
+                    "current_trick": [],
+                    "current_player": game.current_player_index,
+                    "your_hand": [
+                        {"suit": c.suit.value, "rank": c.rank.value, "value": c.value}
+                        for c in game.players[player_index].hand
+                    ],
+                    "other_hands": [
+                        len(p.hand) if i != player_index else None
+                        for i, p in enumerate(game.players)
+                    ],
+                    "contract": None,
+                    "trick_number": 0,
+                    "round_complete": False,
+                    "players": [p.name for p in game.players],  # Use actual game player names
+                    "your_player_index": player_index,
+                    "bidding_phase": game.bidding_phase and not game.bidding_complete,
+                    "current_bidder": game.current_bidder_index if game.bidding_phase else None,
+                    "highest_bid": game.highest_bid,
+                    "passes_in_a_row": game.passes_in_a_row
+                }
+            }, username)
     
     return room.to_dict()
 
@@ -268,3 +300,36 @@ async def get_room(
     
     return rooms[room_id].to_dict()
 
+@router.post("/join-by-code")
+async def join_by_code(
+    request: dict,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Join a room by room code"""
+    room_code = request.get("room_code", "").upper().strip()
+    
+    if not room_code:
+        raise HTTPException(status_code=400, detail="Room code is required")
+    
+    # Find room by code
+    room = None
+    for r in rooms.values():
+        if r.is_private and r.room_code == room_code:
+            room = r
+            break
+    
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found with that code")
+    
+    if room.status != "waiting":
+        raise HTTPException(status_code=400, detail="Room is not accepting players")
+    
+    # Check if player is already in room
+    if any(p["user_id"] == current_user.id for p in room.players):
+        # Player already in room, just return current room state
+        return room.to_dict()
+    
+    if not room.add_player(current_user.id, current_user.username):
+        raise HTTPException(status_code=400, detail="Cannot join room (room is full)")
+    
+    return room.to_dict()

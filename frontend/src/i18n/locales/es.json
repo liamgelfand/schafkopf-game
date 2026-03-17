@@ -16,7 +16,37 @@
     "bid": "Pujar",
     "makeBid": "Hacer puja",
     "yourTurn": "Tu turno",
-    "waiting": "Esperando..."
+    "waiting": "Esperando...",
+    "backToHome": "Volver al inicio",
+    "loading": "Cargando...",
+    "creating": "Creando...",
+    "starting": "Iniciando...",
+    "join": "Unirse",
+    "leave": "Salir",
+    "leaveRoom": "Salir de la sala",
+    "players": "Jugadores",
+    "gameRoom": "Sala de juego",
+    "inProgress": "En progreso",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "home": {
+    "title": "Bienvenido a Schafkopf",
+    "subtitle": "Juego de cartas alemán tradicional",
+    "welcomeMessage": "Por favor, inicia sesión o regístrate para comenzar a jugar",
+    "loginRegister": "Iniciar sesión / Registrarse"
+  },
+  "login": {
+    "title": "Schafkopf",
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "username": "Nombre de usuario",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "submit": "Enviar",
+    "authenticationFailed": "Error de autenticación",
+    "errorOccurred": "Ocurrió un error",
+    "noAccessToken": "No se recibió token de acceso"
   },
   "game": {
     "title": "Schafkopf",
@@ -32,6 +62,8 @@
     "contract": "Contrato: {{contract}}",
     "trick": "Baza {{current}}/8",
     "noCardsPlayed": "Aún no se han jugado cartas",
+    "notLoggedIn": "No has iniciado sesión",
+    "noRoomId": "No se proporcionó ID de sala",
     "contracts": {
       "rufer": "Rufer",
       "wenz": "Wenz",
@@ -42,22 +74,68 @@
       "gras": "Gras",
       "herz": "Herz",
       "schellen": "Schellen"
-    }
+    },
+    "trumpSuits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    },
+    "calledAce": "As llamado",
+    "selectTrump": "Seleccionar palo de triunfo",
+    "selectCalledAce": "Seleccionar as llamado"
   },
   "lobby": {
     "title": "Sala de juego",
-    "players": "Jugadores",
-    "waitingForPlayers": "Esperando jugadores...",
-    "allReady": "¡Todos los jugadores listos!",
-    "gameStarting": "Iniciando juego..."
+    "gameRoom": "Sala de juego",
+    "joinOrCreate": "Unirse o crear una sala de juego",
+    "createNewRoom": "Crear nueva sala",
+    "createPublicRoom": "Crear sala pública",
+    "createPrivateRoom": "Crear sala privada",
+    "joinByCode": "Unirse por código",
+    "cancel": "Cancelar",
+    "enterRoomCode": "Ingresar código de sala",
+    "roomCodeRequired": "El código de sala es requerido",
+    "roomCode": "Código de sala",
+    "copyCode": "Copiar",
+    "roomCodeCopied": "¡Código de sala copiado al portapapeles!",
+    "shareCodeHint": "Comparte este código con amigos para que puedan unirse",
+    "availableRooms": "Salas disponibles",
+    "noRoomsAvailable": "No hay salas disponibles. ¡Crea una para empezar!",
+    "waitingForPlayer": "Esperando jugador...",
+    "startGame": "Iniciar juego",
+    "room": "Sala"
   },
   "dashboard": {
-    "title": "¡Bienvenido a Schafkopf!",
-    "quickActions": "Acciones rápidas",
+    "title": "Panel de control Schafkopf",
+    "quickStart": "Inicio rápido",
+    "createNewGame": "Crear nuevo juego",
+    "browseAllGames": "Explorar todos los juegos",
     "activeLobbies": "Salas activas",
-    "noLobbies": "No hay salas activas. ¡Crea una!",
-    "refresh": "Actualizar salas",
-    "yourGame": "Tu juego"
+    "noActiveLobbies": "No hay salas activas. ¡Crea una para empezar!",
+    "quickLinks": "Enlaces rápidos",
+    "viewProfile": "Ver tu perfil y estadísticas",
+    "viewStats": "Ver tus estadísticas de juego",
+    "learnToPlay": "Aprender a jugar",
+    "failedToCreateRoom": "Error al crear la sala",
+    "failedToJoinRoom": "Error al unirse a la sala"
+  },
+  "settings": {
+    "title": "Configuración",
+    "appearance": "Apariencia",
+    "theme": "Tema",
+    "light": "Claro",
+    "dark": "Oscuro",
+    "gamePreferences": "Preferencias de juego",
+    "cardSort": "Ordenar cartas",
+    "bySuit": "Por palo",
+    "byRank": "Por rango",
+    "trumpsFirst": "Triunfos primero",
+    "autoSortCards": "Ordenar cartas automáticamente",
+    "notifications": "Notificaciones",
+    "soundEnabled": "Sonido activado",
+    "notificationsEnabled": "Notificaciones activadas",
+    "language": "Idioma"
   },
   "errors": {
     "notLoggedIn": "No has iniciado sesión",
@@ -65,11 +143,11 @@
     "notYourTurn": "No es tu turno",
     "invalidBid": "Puja inválida",
     "bidTooLow": "Tu puja es demasiado baja",
-    "cannotPass": "No se puede pasar"
+    "cannotPass": "No se puede pasar",
+    "failedToCreateRoom": "Error al crear la sala",
+    "failedToJoinRoom": "Error al unirse a la sala",
+    "failedToSetReady": "Error al establecer listo",
+    "failedToStartGame": "Error al iniciar el juego",
+    "failedToLeaveRoom": "Error al salir de la sala"
   }
 }
-
-
-
-
-

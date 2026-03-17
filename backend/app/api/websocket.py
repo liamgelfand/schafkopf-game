@@ -6,7 +6,6 @@ from app.models.game import Game
 from app.models.player import Player
 from app.models.card import Card, Suit, Rank
 from app.models.room import GameRoom
-from app.game_logic.tricks import determine_trick_winner, is_valid_play, get_invalid_play_reason
 
 class ConnectionManager:
     """Manages WebSocket connections"""
@@ -76,18 +75,9 @@ async def websocket_endpoint(websocket: WebSocket, game_id: str, user_id: str):
     print(f"WebSocket connection: user_id={user_id}, game_id={game_id}")
     await manager.connect(websocket, game_id, user_id)
     
-    # Send initial game state if game exists
-    # If game doesn't exist yet, wait for it to be created
-    if game_id in manager.games:
-        print(f"Sending initial game state to {user_id} (game exists)")
-        await handle_get_state(game_id, user_id)
-    else:
-        print(f"Game {game_id} not found yet for {user_id}, will send state when game starts")
-        # Send a message that game is not ready yet
-        await manager.send_personal_message({
-            "type": "game_not_ready",
-            "message": "Game not started yet. Waiting for all players to be ready..."
-        }, user_id)
+    # Send initial game state
+    print(f"Sending initial game state to {user_id}")
+    await handle_get_state(game_id, user_id)
     
     try:
         while True:
@@ -146,76 +136,21 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
         }, user_id)
         return
     
-    # Validate it's the player's turn
-    if player_index != game.current_player_index:
-        print(f"ERROR: {user_id} (index {player_index}) tried to play out of turn. Current player: {game.current_player_index}")
-        await manager.send_personal_message({
-            "type": "error",
-            "message": f"Not your turn. Current player: {game.current_player_index}, You are: {player_index}"
-        }, user_id)
-        return
-    
     # Convert card dict to Card object
     card_data = message.get("card", {})
     suit = Suit(card_data.get("suit"))
     rank = Rank(card_data.get("rank"))
     card = Card(suit, rank)
     
-    print(f"Card play: {user_id} (index {player_index}) playing {card.suit.value} {card.rank.value}")
-    print(f"  Before play - current_player_index: {game.current_player_index}, trick size: {len(game.current_trick)}")
-    
-    # Validate the play before attempting it
-    led_suit = game.current_trick[0].suit if game.current_trick else None
-    led_card = game.current_trick[0] if game.current_trick else None
-    if not is_valid_play(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit, led_card):
-        reason = get_invalid_play_reason(card, game.players[player_index], led_suit, game.contract_type, game.trump_suit, led_card)
-        error_message = f"Cannot play this card. {reason}" if reason else "Cannot play this card. Invalid play."
-        print(f"  Card play failed - {error_message}")
-        await manager.send_personal_message({
-            "type": "play_error",
-            "message": error_message,
-            "card": {"suit": card.suit.value, "rank": card.rank.value}
-        }, user_id)
-        # Send updated state so they can see valid plays
-        await send_game_state_to_user(game_id, user_id, player_index)
-        return
-    
     # Play the card
     if game.play_card(player_index, card):
-        print(f"  After play - current_player_index: {game.current_player_index}, trick size: {len(game.current_trick)}")
-        
         # Check if trick is complete
         if len(game.current_trick) == 4:
-            # Calculate starting player BEFORE completing trick
-            # current_player_index points to next player, so starting player is 3 positions back
-            trick_start_index = (game.current_player_index - 3) % len(game.players)
-            
-            # Complete the trick (this updates current_player_index to winner)
             winner = game.complete_trick()
-            print(f"  Trick complete - winner: {winner}, new current_player_index: {game.current_player_index}")
-            
-            # Get winner's name
-            winner_name = game.players[winner].name if winner < len(game.players) else f"Player {winner}"
-            
-            # Build trick with player information using the trick that was just completed
-            trick_with_players = []
-            completed_trick = game.all_tricks[-1]  # The trick that was just completed
-            for i, card in enumerate(completed_trick):
-                player_idx = (trick_start_index + i) % len(game.players)
-                trick_with_players.append({
-                    "suit": card.suit.value,
-                    "rank": card.rank.value,
-                    "value": card.value,
-                    "player_index": player_idx,
-                    "player_name": game.players[player_idx].name if player_idx < len(game.players) else f"Player {player_idx}"
-                })
-            
             await manager.broadcast_to_game({
                 "type": "trick_complete",
                 "winner": winner,
-                "winner_name": winner_name,
-                "trick": trick_with_players,
-                "trick_number": game.trick_number
+                "trick": [{"suit": c.suit.value, "rank": c.rank.value, "value": c.value} for c in game.all_tricks[-1]]
             }, game_id)
             
             # Check if round is complete (all 8 tricks played)
@@ -223,18 +158,12 @@ async def handle_play_card(game_id: str, user_id: str, message: dict):
                 await handle_round_complete(game_id)
         
         # Broadcast updated game state
-        print(f"  Broadcasting game state - current_player_index: {game.current_player_index}")
         await broadcast_game_state(game_id)
     else:
-        # This should rarely happen now since we validate first, but keep as fallback
-        print(f"  Card play failed - game.play_card returned False")
         await manager.send_personal_message({
-            "type": "play_error",
-            "message": "Cannot play this card. The card may have already been played or is not in your hand.",
-            "card": {"suit": card.suit.value, "rank": card.rank.value}
+            "type": "error",
+            "message": "Invalid card play"
         }, user_id)
-        # Send updated state so they can see valid plays
-        await send_game_state_to_user(game_id, user_id, player_index)
 
 async def handle_pass(game_id: str, user_id: str, message: dict):
     """Handle a pass action during bidding or gameplay"""
@@ -251,43 +180,6 @@ async def handle_pass(game_id: str, user_id: str, message: dict):
     # Handle bidding phase pass
     if game.bidding_phase and not game.bidding_complete:
         if game.pass_bid(player_index):
-            # Check if all 4 players passed with no bid (need to reshuffle)
-            if game.bidding_complete and not game.highest_bid:
-                # All players passed - reshuffle and redeal
-                await manager.broadcast_to_game({
-                    "type": "all_passed",
-                    "message": "All players passed. Reshuffling cards..."
-                }, game_id)
-                
-                # Reshuffle and redeal
-                game.deck.reset()
-                game.deck.shuffle()
-                hands = game.deck.deal(len(game.players))
-                for i, hand in enumerate(hands):
-                    game.players[i].hand = hand
-                
-                # Reset bidding state
-                game.bidding_phase = True
-                game.bidding_complete = False
-                game.highest_bid = None
-                game.passes_in_a_row = 0
-                game.bids_made = 0
-                # Move to next starting bidder (clockwise)
-                game.initial_bidder_index = (game.initial_bidder_index + 1) % len(game.players)
-                game.current_bidder_index = game.initial_bidder_index
-                game.current_player_index = game.current_bidder_index
-                
-                await manager.broadcast_to_game({
-                    "type": "cards_reshuffled",
-                    "new_starting_bidder": game.current_bidder_index,
-                    "message": "Cards reshuffled. New bidding round starting."
-                }, game_id)
-                
-                # Send updated game state after reshuffle
-                await broadcast_game_state(game_id)
-                return  # Exit early after reshuffle
-            
-            # Normal pass (not all passed)
             await manager.broadcast_to_game({
                 "type": "bid_passed",
                 "player_id": user_id,
@@ -296,7 +188,7 @@ async def handle_pass(game_id: str, user_id: str, message: dict):
                 "bidding_complete": game.bidding_complete
             }, game_id)
             
-            if game.bidding_complete and game.highest_bid:
+            if game.bidding_complete:
                 await manager.broadcast_to_game({
                     "type": "bidding_complete",
                     "contract": game.contract_type,
@@ -495,38 +387,16 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
     print(f"  Your hand size: {len(player_hand)}")
     print(f"  Other hands: {other_hands}")
     
-    # Build current trick with player indices
-    current_trick_with_players = []
-    if game.current_trick:
-        trick_start_index = (game.current_player_index - len(game.current_trick)) % len(game.players)
-        for i, card in enumerate(game.current_trick):
-            player_idx = (trick_start_index + i) % len(game.players)
-            current_trick_with_players.append({
-                "suit": card.suit.value,
-                "rank": card.rank.value,
-                "value": card.value,
-                "player_index": player_idx,
-                "player_name": player_names[player_idx]
-            })
-    
-    # Get contract details
-    contract_details = {
-        "type": game.contract_type,
-        "trump_suit": game.trump_suit.value if game.trump_suit else None,
-        "declarer_index": game.declarer_index,
-        "partner_index": game.partner_index
-    }
-    if game.contract_type == "Rufer" and hasattr(game.contract, 'called_ace_suit'):
-        contract_details["called_ace"] = game.contract.called_ace_suit.value if game.contract.called_ace_suit else None
-    
     state = {
         "game_id": game_id,
-        "current_trick": current_trick_with_players,
+        "current_trick": [
+            {"suit": c.suit.value, "rank": c.rank.value, "value": c.value}
+            for c in game.current_trick
+        ],
         "current_player": game.current_player_index,
         "your_hand": player_hand,
         "other_hands": other_hands,
         "contract": game.contract_type,
-        "contract_details": contract_details,
         "trick_number": game.trick_number,
         "round_complete": game.is_round_complete(),
         "players": player_names,
@@ -536,8 +406,6 @@ async def send_game_state_to_user(game_id: str, user_id: str, player_index: int 
         "highest_bid": game.highest_bid,
         "passes_in_a_row": game.passes_in_a_row
     }
-    
-    print(f"  State being sent - current_player: {state['current_player']}, your_player_index: {state['your_player_index']}")
     
     await manager.send_personal_message({
         "type": "game_state",
@@ -607,6 +475,7 @@ async def handle_round_complete(game_id: str):
                 # Determine if this player won
                 player_won = player_index in winning_team and declarer_won
                 
+                # Create GameRecord
                 # Calculate points for this player
                 # game_points is from declarer's perspective, so negate for opponents
                 if player_index in winning_team:
@@ -616,40 +485,21 @@ async def handle_round_complete(game_id: str):
                     # Player is on losing team - negate the points
                     player_game_points = -game_points
                 
-                # Check if record already exists (avoid duplicate key error)
-                existing_record = db.query(GameRecord).filter(
-                    GameRecord.game_id == game_id,
-                    GameRecord.user_id == user_id
-                ).first()
-                
-                if existing_record:
-                    # Update existing record
-                    existing_record.contract_type = game.contract_type
-                    existing_record.declarer_index = game.declarer_index
-                    existing_record.partner_index = game.partner_index
-                    existing_record.won = player_won
-                    existing_record.schneider = round_score["schneider"]
-                    existing_record.schwarz = round_score["schwarz"]
-                    existing_record.declarer_points = round_score["declarer_points"]
-                    existing_record.team_points = round_score["team_points"]
-                    existing_record.game_points = player_game_points
-                else:
-                    # Create new GameRecord
-                    game_record = GameRecord(
-                        game_id=game_id,
-                        user_id=user_id,
-                        contract_type=game.contract_type,
-                        declarer_index=game.declarer_index,
-                        partner_index=game.partner_index,
-                        won=player_won,
-                        schneider=round_score["schneider"],
-                        schwarz=round_score["schwarz"],
-                        declarer_points=round_score["declarer_points"],
-                        team_points=round_score["team_points"],
-                        game_points=player_game_points,
-                        created_at=datetime.utcnow()
-                    )
-                    db.add(game_record)
+                game_record = GameRecord(
+                    game_id=game_id,
+                    user_id=user_id,
+                    contract_type=game.contract_type,
+                    declarer_index=game.declarer_index,
+                    partner_index=game.partner_index,
+                    won=player_won,
+                    schneider=round_score["schneider"],
+                    schwarz=round_score["schwarz"],
+                    declarer_points=round_score["declarer_points"],
+                    team_points=round_score["team_points"],
+                    game_points=player_game_points,
+                    created_at=datetime.utcnow()
+                )
+                db.add(game_record)
                 
                 # Update or create PlayerStats
                 stats = db.query(PlayerStats).filter(PlayerStats.user_id == user_id).first()
@@ -671,30 +521,11 @@ async def handle_round_complete(game_id: str):
             
             db.commit()
             
-            # Calculate player-specific scores
-            player_scores = {}
-            for player_index, username in enumerate(usernames):
-                user_id = user_id_map.get(username)
-                if user_id:
-                    player_won = player_index in winning_team and declarer_won
-                    if player_index in winning_team:
-                        player_game_points = game_points
-                    else:
-                        player_game_points = -game_points
-                    player_scores[username] = {
-                        "won": player_won,
-                        "game_points": player_game_points,
-                        "player_index": player_index
-                    }
-            
-            # Broadcast round complete message with full details
+            # Broadcast round complete message
             await manager.broadcast_to_game({
                 "type": "round_complete",
                 "scores": round_score,
                 "game_points": game_points,
-                "player_scores": player_scores,
-                "declarer_won": declarer_won,
-                "winning_team": winning_team,
                 "message": f"Round complete! {'Declarer team won!' if declarer_won else 'Opponents won!'}"
             }, game_id)
             
@@ -703,33 +534,6 @@ async def handle_round_complete(game_id: str):
             print(f"Error saving game results: {e}")
             import traceback
             traceback.print_exc()
-            # Still broadcast round complete even if database save fails
-            # Calculate player-specific scores for display
-            player_scores = {}
-            for player_index, username in enumerate(usernames):
-                user_id = user_id_map.get(username)
-                if user_id:
-                    player_won = player_index in winning_team and declarer_won
-                    if player_index in winning_team:
-                        player_game_points = game_points
-                    else:
-                        player_game_points = -game_points
-                    player_scores[username] = {
-                        "won": player_won,
-                        "game_points": player_game_points,
-                        "player_index": player_index
-                    }
-            
-            # Broadcast round complete message even on database error
-            await manager.broadcast_to_game({
-                "type": "round_complete",
-                "scores": round_score,
-                "game_points": game_points,
-                "player_scores": player_scores,
-                "declarer_won": declarer_won,
-                "winning_team": winning_team,
-                "message": f"Round complete! {'Declarer team won!' if declarer_won else 'Opponents won!'}"
-            }, game_id)
         finally:
             db.close()
             
@@ -737,14 +541,3 @@ async def handle_round_complete(game_id: str):
         print(f"Error handling round completion: {e}")
         import traceback
         traceback.print_exc()
-        # Try to broadcast basic round complete message even on error
-        try:
-            await manager.broadcast_to_game({
-                "type": "round_complete",
-                "message": "Round complete! (Score calculation may be incomplete)",
-                "player_scores": {},
-                "scores": {},
-                "game_points": 0
-            }, game_id)
-        except:
-            pass

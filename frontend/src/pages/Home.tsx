@@ -1,7 +1,9 @@
 import { Link, Navigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import './Home.css'
 
 function Home() {
+  const { t } = useTranslation()
   const token = localStorage.getItem('token')
   
   // Redirect to dashboard if logged in
@@ -12,14 +14,12 @@ function Home() {
   return (
     <div className="home">
       <div className="home-container">
-        <h1>Schafkopf</h1>
-        <p className="subtitle">Traditional German Card Game</p>
+        <h1>{t('home.title')}</h1>
+        <p className="subtitle">{t('home.subtitle')}</p>
+        <p className="welcome-message">{t('home.welcomeMessage')}</p>
         <div className="menu-buttons">
-          <Link to="/tutorial" className="menu-button">
-            Tutorial
-          </Link>
           <Link to="/login" className="menu-button primary">
-            Login / Register
+            {t('home.loginRegister')}
           </Link>
         </div>
       </div>

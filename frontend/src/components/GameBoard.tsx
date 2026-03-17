@@ -1,32 +1,19 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import CardHand from './CardHand'
 import Card from './Card'
 import { Card as CardType, ContractType } from '../game/types'
 import { GameWebSocket } from '../game/websocket'
 import './GameBoard.css'
 
-interface TrickCard extends CardType {
-  player_index?: number
-  player_name?: string
-}
-
-interface ContractDetails {
-  type: string
-  trump_suit?: string
-  declarer_index?: number
-  partner_index?: number
-  called_ace?: string
-}
-
 interface GameState {
   game_id: string
-  current_trick: TrickCard[]
+  current_trick: CardType[]
   current_player: number
   your_hand: CardType[]
   other_hands: (number | null)[]
   contract?: string
-  contract_details?: ContractDetails
   trick_number: number
   round_complete: boolean
   players: string[]
@@ -42,16 +29,8 @@ interface GameState {
   passes_in_a_row?: number
 }
 
-interface RoundCompleteData {
-  scores: any
-  game_points: number
-  player_scores: Array<{ player_index: number; username: string; points: number; won: boolean }> | Record<string, { won: boolean; game_points: number; player_index: number }>
-  declarer_won?: boolean
-  winning_team?: number[]
-  message: string
-}
-
 function GameBoard() {
+  const { t } = useTranslation()
   const [searchParams] = useSearchParams()
   const roomId = searchParams.get('room') || ''
   const [gameState, setGameState] = useState<GameState | null>(null)
@@ -61,16 +40,13 @@ function GameBoard() {
   const [selectedCalledAce, setSelectedCalledAce] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [playError, setPlayError] = useState<string | null>(null)
-  const [roundComplete, setRoundComplete] = useState<RoundCompleteData | null>(null)
-  const [trickWinner, setTrickWinner] = useState<{ winner: number; winner_name: string; trick_number: number } | null>(null)
   const wsRef = useRef<GameWebSocket | null>(null)
   const userIdRef = useRef<string>('')
 
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) {
-      setError('Not logged in')
+      setError(t('game.notLoggedIn'))
       setLoading(false)
       return
     }
@@ -83,7 +59,7 @@ function GameBoard() {
     }
 
     if (!roomId) {
-      setError('No room ID provided')
+      setError(t('game.noRoomId'))
       setLoading(false)
       return
     }
@@ -111,68 +87,32 @@ function GameBoard() {
           players: state.players,
           your_player_index: receivedPlayerIndex,
           your_hand_length: state.your_hand?.length,
-          other_hands: state.other_hands,
-          current_bidder: state.current_bidder,
-          bidding_phase: state.bidding_phase
+          other_hands: state.other_hands
         })
         
         // Validate your_player_index is set
         if (receivedPlayerIndex === undefined || receivedPlayerIndex === null) {
           console.error('your_player_index is missing from game state!', state)
-          // Request state again if player index is missing
-          if (wsRef.current) {
-            console.log('Requesting state again due to missing player index')
-            setTimeout(() => wsRef.current?.getState(), 500)
-          }
         }
         
-        // Always update state - don't preserve old player_index if new one is provided
-        setGameState({
+        setGameState(prevState => ({
           game_id: state.game_id,
           current_trick: state.current_trick || [],
           current_player: state.current_player,
           your_hand: state.your_hand || [],
           other_hands: state.other_hands || [],
           contract: state.contract,
-          contract_details: state.contract_details,
           trick_number: state.trick_number || 0,
           round_complete: state.round_complete || false,
           players: state.players || [],
           your_player_index: receivedPlayerIndex !== undefined && receivedPlayerIndex !== null 
             ? receivedPlayerIndex 
-            : 0, // Default to 0 if not set (shouldn't happen)
+            : (prevState?.your_player_index ?? 0), // Keep previous if not set
           bidding_phase: state.bidding_phase || false,
           current_bidder: state.current_bidder,
           highest_bid: state.highest_bid || null,
           passes_in_a_row: state.passes_in_a_row || 0,
-        })
-        break
-      
-      case 'round_complete':
-        console.log('Round complete message received:', message)
-        setRoundComplete(message)
-        setGameState(prev => prev ? { ...prev, round_complete: true } : null)
-        // Request final state to ensure we have all data
-        if (wsRef.current) {
-          wsRef.current.getState()
-        }
-        break
-      
-      case 'game_not_ready':
-        console.log('Game not ready yet:', message.message)
-        setLoading(true)
-        // Request state again in a moment
-        if (wsRef.current) {
-          setTimeout(() => wsRef.current?.getState(), 1000)
-        }
-        break
-      
-      case 'game_state_update':
-        // Game state was updated, request fresh state
-        console.log('Game state updated, requesting fresh state')
-        if (wsRef.current) {
-          wsRef.current.getState()
-        }
+        }))
         break
 
       case 'bid_made':
@@ -182,82 +122,30 @@ function GameBoard() {
           wsRef.current.getState()
         }
         break
-      
-      case 'all_passed':
-      case 'cards_reshuffled':
-        console.log('Cards reshuffled, new bidding round')
-        if (wsRef.current) {
-          wsRef.current.getState()
-        }
-        break
 
       case 'trick_complete':
-        console.log('Trick complete:', message)
-        // Store trick winner information
-        if (message.winner !== undefined && message.winner_name) {
-          setTrickWinner({
-            winner: message.winner,
-            winner_name: message.winner_name,
-            trick_number: message.trick_number || 0
-          })
-          // Clear trick winner after 3 seconds
-          setTimeout(() => setTrickWinner(null), 3000)
-        }
         if (wsRef.current) {
           wsRef.current.getState()
         }
         break
 
       case 'error':
-        // Only set error for critical errors that should block the UI
-        if (message.message && !message.message.includes('Not your turn') && !message.message.includes('Cannot play')) {
-          setError(message.message || 'An error occurred')
-        }
-        break
-      
-      case 'play_error':
-        // Show play error as a temporary notification, don't disconnect
-        setPlayError(message.message || 'Cannot play this card')
-        console.log('Play error:', message.message)
-        // Clear error after 5 seconds
-        setTimeout(() => setPlayError(null), 5000)
+        setError(message.message || t('login.errorOccurred'))
         break
     }
   }
 
   const handleCardClick = useCallback(
     (card: CardType) => {
-      if (!gameState) {
-        console.log('Cannot play card: no game state')
-        return
-      }
+      if (!gameState) return
       
       // Only allow card play if not in bidding phase and it's your turn
-      const yourIndex = gameState.your_player_index ?? 0
-      console.log('Card click:', {
-        card: `${card.suit} ${card.rank}`,
-        yourIndex,
-        currentPlayer: gameState.current_player,
-        biddingPhase: gameState.bidding_phase,
-        isYourTurn: !gameState.bidding_phase && gameState.current_player === yourIndex
-      })
-      
-      if (gameState.bidding_phase) {
-        console.log('Cannot play card: still in bidding phase')
-        return
-      }
-      
-      if (gameState.current_player !== yourIndex) {
-        console.log(`Cannot play card: not your turn. Current player: ${gameState.current_player}, You are: ${yourIndex}`)
+      if (gameState.bidding_phase || gameState.current_player !== 0) {
         return
       }
 
-      if (!wsRef.current) {
-        console.log('Cannot play card: WebSocket not connected')
-        return
-      }
+      if (!wsRef.current) return
 
-      console.log(`Playing card: ${card.suit} ${card.rank}`)
       setSelectedCard(card)
       wsRef.current.playCard({
         suit: card.suit,
@@ -270,19 +158,9 @@ function GameBoard() {
 
   const handleBid = useCallback(() => {
     if (!gameState || !wsRef.current) return
-    
-    // Get your player index from state
-    const yourIndex = gameState.your_player_index ?? 0
-    if (gameState.current_bidder !== yourIndex) {
-      console.log(`Not your turn to bid. Current bidder: ${gameState.current_bidder}, You are: ${yourIndex}`)
-      return
-    }
-    if (!selectedContract) {
-      console.log('No contract selected')
-      return
-    }
+    if (gameState.current_bidder !== 0) return
+    if (!selectedContract) return
 
-    console.log('Making bid:', { contract: selectedContract, trump: selectedTrump, calledAce: selectedCalledAce })
     wsRef.current.selectContract(
       selectedContract as ContractType,
       selectedTrump || undefined,
@@ -295,32 +173,19 @@ function GameBoard() {
 
   const handlePassBid = useCallback(() => {
     if (!gameState || !wsRef.current) return
-    
-    // Get your player index from state
-    const yourIndex = gameState.your_player_index ?? 0
-    if (gameState.current_bidder !== yourIndex) {
-      console.log(`Not your turn to pass. Current bidder: ${gameState.current_bidder}, You are: ${yourIndex}`)
-      return
-    }
+    if (gameState.current_bidder !== 0) return
 
-    console.log('Passing bid')
     wsRef.current.pass()
   }, [gameState])
 
   const getContractRank = (contractType: string, trumpSuit?: string): number => {
-    // Contract hierarchy (lowest to highest):
-    // 1. Rufer
-    // 2. Wenz (no suit)
-    // 3. Suited Wenz (with suit)
-    // 4. Solo (all suits equal value)
     if (contractType === 'Rufer') return 1
-    if (contractType === 'Wenz') {
-      // If trumpSuit is provided, it's a Suited Wenz
-      return trumpSuit ? 3 : 2
-    }
+    if (contractType === 'Wenz') return 2
     if (contractType === 'Solo') {
-      // All Solo suits are equal value (rank 4)
-      return 4
+      if (trumpSuit === 'Eichel') return 3
+      if (trumpSuit === 'Gras') return 4
+      if (trumpSuit === 'Herz') return 5
+      if (trumpSuit === 'Schellen') return 6
     }
     return 0
   }
@@ -332,15 +197,13 @@ function GameBoard() {
       gameState.highest_bid.trump_suit
     )
     const newRank = getContractRank(contractType, trumpSuit)
-    // Must bid higher than current highest
-    // If same rank (e.g., both Solo), cannot override (first bidder wins)
     return newRank > currentRank
   }
 
   if (loading) {
     return (
       <div className="game-board">
-        <div className="game-loading">Connecting to game...</div>
+        <div className="game-loading">{t('game.connecting')}</div>
       </div>
     )
   }
@@ -349,9 +212,9 @@ function GameBoard() {
     return (
       <div className="game-board">
         <div className="game-error">
-          <h2>Error</h2>
+          <h2>{t('errors.gameNotFound')}</h2>
           <p>{error}</p>
-          <Link to="/lobby">Back to Lobby</Link>
+          <Link to="/lobby">{t('common.backToHome')}</Link>
         </div>
       </div>
     )
@@ -360,7 +223,7 @@ function GameBoard() {
   if (!gameState) {
     return (
       <div className="game-board">
-        <div className="game-loading">Waiting for game to start...</div>
+        <div className="game-loading">{t('game.loading')}</div>
       </div>
     )
   }
@@ -399,12 +262,12 @@ function GameBoard() {
   return (
     <div className="game-board">
       <div className="game-header">
-        <h2>Schafkopf</h2>
+        <h2>{t('game.title')}</h2>
         {gameState.contract && (
-          <div className="contract-display">Contract: {gameState.contract}</div>
+          <div className="contract-display">{t('game.contract', { contract: gameState.contract })}</div>
         )}
         {!isBiddingPhase && (
-          <div className="trick-counter">Trick {gameState.trick_number}/8</div>
+          <div className="trick-counter">{t('game.trick', { current: gameState.trick_number })}</div>
         )}
       </div>
 
@@ -438,41 +301,26 @@ function GameBoard() {
           {isBiddingPhase ? (
             <div className="bidding-status">
               <div className="current-bidder">
-                {gameState.current_bidder === yourPlayerIndex ? 'Your turn to bid' : `${playerNames[gameState.current_bidder ?? 0]}'s turn`}
+                {gameState.current_bidder === yourPlayerIndex 
+                  ? t('game.yourTurnToBid')
+                  : t('game.turnToBid', { name: playerNames[gameState.current_bidder ?? 0] })}
               </div>
               {gameState.highest_bid && (
                 <div className="highest-bid">
-                  Highest: {gameState.highest_bid.contract_type}
-                  {gameState.highest_bid.trump_suit && ` ${gameState.highest_bid.trump_suit}`}
+                  {t('game.highestBid', { 
+                    contract: `${gameState.highest_bid.contract_type}${gameState.highest_bid.trump_suit ? ` ${gameState.highest_bid.trump_suit}` : ''}`
+                  })}
                 </div>
               )}
-              <div className="passes-count">Passes: {gameState.passes_in_a_row}/3</div>
+              <div className="passes-count">{t('game.passes', { count: gameState.passes_in_a_row })}</div>
             </div>
           ) : (
             <div className="trick-display">
-              {trickWinner && (
-                <div className="trick-winner-announcement">
-                  <div className="trick-winner-badge">
-                    🏆 {trickWinner.winner_name} won Trick {trickWinner.trick_number}!
-                  </div>
-                </div>
-              )}
-              {gameState.current_trick.length === 0 ? (
-                <div className="empty-trick">No cards played yet</div>
-              ) : (
-                gameState.current_trick.map((card, idx) => {
-                  const playerIdx = card.player_index ?? idx
-                  const relativePos = (playerIdx - yourPlayerIndex + 4) % 4
-                  const positionClass = relativePos === 0 ? 'bottom' : relativePos === 1 ? 'right' : relativePos === 2 ? 'top' : 'left'
-                  const isWinner = trickWinner && trickWinner.winner === playerIdx
-                  return (
-                    <div key={idx} className={`trick-card-position trick-card-${positionClass} ${isWinner ? 'trick-winner' : ''}`}>
-                      <Card card={card} disabled={true} />
-                      <div className="trick-card-player">{card.player_name || playerNames[playerIdx]}</div>
-                      {isWinner && <div className="winner-indicator">✓</div>}
-                    </div>
-                  )
-                })
+              {gameState.current_trick.map((card, idx) => (
+                <Card key={idx} card={card} disabled={true} />
+              ))}
+              {gameState.current_trick.length === 0 && (
+                <div className="empty-trick">{t('game.noCardsPlayed')}</div>
               )}
             </div>
           )}
@@ -487,7 +335,7 @@ function GameBoard() {
       {/* Bidding UI - Show cards during bidding so players can decide */}
       {isBiddingPhase && (
         <div className="your-hand-section">
-          <h3>Your Hand - Choose Your Bid</h3>
+          <h3>{t('game.yourHand')} - {t('game.chooseBid')}</h3>
           <CardHand
             cards={playerHand}
             onCardClick={() => {}} // Cards not clickable during bidding
@@ -501,43 +349,24 @@ function GameBoard() {
 
       {isBiddingPhase && isYourBidTurn && (
         <div className="bidding-panel">
-          <h3>Make Your Bid</h3>
+          <h3>{t('game.makeYourBid')}</h3>
           <div className="contract-options">
             <button
               className={`contract-btn ${selectedContract === 'Rufer' ? 'selected' : ''} ${!canBid('Rufer') ? 'disabled' : ''}`}
               onClick={() => setSelectedContract('Rufer')}
               disabled={!canBid('Rufer')}
             >
-              Rufer
+              {t('game.contracts.rufer')}
             </button>
-            <div className="wenz-group">
-              <span>Wenz:</span>
-              <button
-                className={`contract-btn ${selectedContract === 'Wenz' && !selectedTrump ? 'selected' : ''} ${!canBid('Wenz') ? 'disabled' : ''}`}
-                onClick={() => {
-                  setSelectedContract('Wenz')
-                  setSelectedTrump('')
-                }}
-                disabled={!canBid('Wenz')}
-              >
-                Wenz (Regular)
-              </button>
-              {['Eichel', 'Gras', 'Herz', 'Schellen'].map(suit => (
-                <button
-                  key={suit}
-                  className={`contract-btn wenz-suited ${selectedContract === 'Wenz' && selectedTrump === suit ? 'selected' : ''} ${!canBid('Wenz', suit) ? 'disabled' : ''}`}
-                  onClick={() => {
-                    setSelectedContract('Wenz')
-                    setSelectedTrump(suit)
-                  }}
-                  disabled={!canBid('Wenz', suit)}
-                >
-                  Wenz {suit}
-                </button>
-              ))}
-            </div>
+            <button
+              className={`contract-btn ${selectedContract === 'Wenz' ? 'selected' : ''} ${!canBid('Wenz') ? 'disabled' : ''}`}
+              onClick={() => setSelectedContract('Wenz')}
+              disabled={!canBid('Wenz')}
+            >
+              {t('game.contracts.wenz')}
+            </button>
             <div className="solo-group">
-              <span>Solo:</span>
+              <span>{t('game.contracts.solo')}:</span>
               {['Eichel', 'Gras', 'Herz', 'Schellen'].map(suit => (
                 <button
                   key={suit}
@@ -548,18 +377,18 @@ function GameBoard() {
                   }}
                   disabled={!canBid('Solo', suit)}
                 >
-                  Solo {suit}
+                  {t(`game.suits.${suit.toLowerCase()}`)}
                 </button>
               ))}
             </div>
           </div>
           {selectedContract === 'Rufer' && (
             <div className="called-ace-select">
-              <label>Call Ace:</label>
+              <label>{t('game.calledAce')}:</label>
               <select value={selectedCalledAce} onChange={(e) => setSelectedCalledAce(e.target.value)}>
-                <option value="">Select...</option>
+                <option value="">{t('game.selectCalledAce')}</option>
                 {['Eichel', 'Gras', 'Herz', 'Schellen'].map(suit => (
-                  <option key={suit} value={suit}>{suit}</option>
+                  <option key={suit} value={suit}>{t(`game.suits.${suit.toLowerCase()}`)}</option>
                 ))}
               </select>
             </div>
@@ -570,10 +399,10 @@ function GameBoard() {
               onClick={handleBid}
               disabled={!selectedContract || (selectedContract === 'Rufer' && !selectedCalledAce)}
             >
-              Make Bid
+              {t('common.makeBid')}
             </button>
             <button className="pass-btn" onClick={handlePassBid}>
-              Pass
+              {t('common.pass')}
             </button>
           </div>
         </div>
@@ -593,67 +422,9 @@ function GameBoard() {
         </div>
       )}
 
-      <Link to="/dashboard" className="back-link">
-        Back to Dashboard
+      <Link to="/lobby" className="back-link">
+        {t('common.backToHome')}
       </Link>
-
-      {/* Play Error Toast */}
-      {playError && (
-        <div className="play-error-toast" onClick={() => setPlayError(null)}>
-          <div className="play-error-content">
-            <strong>Cannot Play Card</strong>
-            <p>{playError}</p>
-            <button className="close-error-btn" onClick={(e) => { e.stopPropagation(); setPlayError(null); }}>
-              ×
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Round Complete Modal */}
-      {roundComplete && (
-        <div className="round-complete-modal">
-          <div className="round-complete-content">
-            <h2>Round Complete!</h2>
-            <p className="round-result">{roundComplete.message}</p>
-            
-            <div className="scores-section">
-              <h3>Scores</h3>
-              <div className="player-scores-list">
-                {Array.isArray(roundComplete.player_scores) ? (
-                  // Backend sends array format
-                  roundComplete.player_scores.map((playerScore, idx) => (
-                    <div key={idx} className={`player-score ${playerScore.won ? 'winner' : 'loser'}`}>
-                      <span className="player-name">{playerScore.username}</span>
-                      <span className="points">{playerScore.points > 0 ? '+' : ''}{playerScore.points}</span>
-                      {playerScore.won && <span className="badge">Winner</span>}
-                    </div>
-                  ))
-                ) : (
-                  // Backend sends object format (fallback)
-                  gameState.players.map((playerName, idx) => {
-                    const playerScore = roundComplete.player_scores[playerName]
-                    if (!playerScore) return null
-                    return (
-                      <div key={idx} className={`player-score ${playerScore.won ? 'winner' : 'loser'}`}>
-                        <span className="player-name">{playerName}</span>
-                        <span className="points">{playerScore.game_points > 0 ? '+' : ''}{playerScore.game_points}</span>
-                        {playerScore.won && <span className="badge">Winner</span>}
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="round-actions">
-              <button className="back-to-lobby-btn" onClick={() => window.location.href = '/dashboard'}>
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

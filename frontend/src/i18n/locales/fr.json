@@ -16,7 +16,37 @@
     "bid": "Enchérir",
     "makeBid": "Faire une enchère",
     "yourTurn": "Votre tour",
-    "waiting": "En attente..."
+    "waiting": "En attente...",
+    "backToHome": "Retour à l'accueil",
+    "loading": "Chargement...",
+    "creating": "Création...",
+    "starting": "Démarrage...",
+    "join": "Rejoindre",
+    "leave": "Quitter",
+    "leaveRoom": "Quitter la salle",
+    "players": "Joueurs",
+    "gameRoom": "Salle de jeu",
+    "inProgress": "En cours",
+    "yes": "Oui",
+    "no": "Non"
+  },
+  "home": {
+    "title": "Bienvenue à Schafkopf",
+    "subtitle": "Jeu de cartes allemand traditionnel",
+    "welcomeMessage": "Veuillez vous connecter ou vous inscrire pour commencer à jouer",
+    "loginRegister": "Connexion / Inscription"
+  },
+  "login": {
+    "title": "Schafkopf",
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail",
+    "password": "Mot de passe",
+    "submit": "Soumettre",
+    "authenticationFailed": "Échec de l'authentification",
+    "errorOccurred": "Une erreur s'est produite",
+    "noAccessToken": "Aucun jeton d'accès reçu"
   },
   "game": {
     "title": "Schafkopf",
@@ -32,6 +62,8 @@
     "contract": "Contrat: {{contract}}",
     "trick": "Plis {{current}}/8",
     "noCardsPlayed": "Aucune carte jouée",
+    "notLoggedIn": "Non connecté",
+    "noRoomId": "Aucun ID de salle fourni",
     "contracts": {
       "rufer": "Rufer",
       "wenz": "Wenz",
@@ -42,22 +74,68 @@
       "gras": "Gras",
       "herz": "Herz",
       "schellen": "Schellen"
-    }
+    },
+    "trumpSuits": {
+      "eichel": "Eichel",
+      "gras": "Gras",
+      "herz": "Herz",
+      "schellen": "Schellen"
+    },
+    "calledAce": "As appelé",
+    "selectTrump": "Sélectionner la couleur atout",
+    "selectCalledAce": "Sélectionner l'as appelé"
   },
   "lobby": {
     "title": "Lobby de jeu",
-    "players": "Joueurs",
-    "waitingForPlayers": "En attente de joueurs...",
-    "allReady": "Tous les joueurs sont prêts!",
-    "gameStarting": "Démarrage du jeu..."
+    "gameRoom": "Salle de jeu",
+    "joinOrCreate": "Rejoindre ou créer une salle de jeu",
+    "createNewRoom": "Créer une nouvelle salle",
+    "createPublicRoom": "Créer une salle publique",
+    "createPrivateRoom": "Créer une salle privée",
+    "joinByCode": "Rejoindre par code",
+    "cancel": "Annuler",
+    "enterRoomCode": "Entrer le code de la salle",
+    "roomCodeRequired": "Le code de la salle est requis",
+    "roomCode": "Code de la salle",
+    "copyCode": "Copier",
+    "roomCodeCopied": "Code de la salle copié dans le presse-papiers!",
+    "shareCodeHint": "Partagez ce code avec vos amis pour qu'ils puissent rejoindre",
+    "availableRooms": "Salles disponibles",
+    "noRoomsAvailable": "Aucune salle disponible. Créez-en une pour commencer!",
+    "waitingForPlayer": "En attente de joueur...",
+    "startGame": "Démarrer le jeu",
+    "room": "Salle"
   },
   "dashboard": {
-    "title": "Bienvenue à Schafkopf!",
-    "quickActions": "Actions rapides",
+    "title": "Tableau de bord Schafkopf",
+    "quickStart": "Démarrage rapide",
+    "createNewGame": "Créer une nouvelle partie",
+    "browseAllGames": "Parcourir toutes les parties",
     "activeLobbies": "Lobbys actifs",
-    "noLobbies": "Aucun lobby actif. Créez-en un!",
-    "refresh": "Actualiser les lobbys",
-    "yourGame": "Votre jeu"
+    "noActiveLobbies": "Aucun lobby actif. Créez-en un pour commencer!",
+    "quickLinks": "Liens rapides",
+    "viewProfile": "Voir votre profil et vos statistiques",
+    "viewStats": "Voir vos statistiques de jeu",
+    "learnToPlay": "Apprendre à jouer",
+    "failedToCreateRoom": "Échec de la création de la salle",
+    "failedToJoinRoom": "Échec de la connexion à la salle"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "appearance": "Apparence",
+    "theme": "Thème",
+    "light": "Clair",
+    "dark": "Sombre",
+    "gamePreferences": "Préférences de jeu",
+    "cardSort": "Tri des cartes",
+    "bySuit": "Par couleur",
+    "byRank": "Par rang",
+    "trumpsFirst": "Atouts en premier",
+    "autoSortCards": "Tri automatique des cartes",
+    "notifications": "Notifications",
+    "soundEnabled": "Son activé",
+    "notificationsEnabled": "Notifications activées",
+    "language": "Langue"
   },
   "errors": {
     "notLoggedIn": "Non connecté",
@@ -65,11 +143,11 @@
     "notYourTurn": "Ce n'est pas votre tour",
     "invalidBid": "Enchère invalide",
     "bidTooLow": "Votre enchère est trop basse",
-    "cannotPass": "Impossible de passer"
+    "cannotPass": "Impossible de passer",
+    "failedToCreateRoom": "Échec de la création de la salle",
+    "failedToJoinRoom": "Échec de la connexion à la salle",
+    "failedToSetReady": "Échec du réglage de la disponibilité",
+    "failedToStartGame": "Échec du démarrage du jeu",
+    "failedToLeaveRoom": "Échec de la sortie de la salle"
   }
 }
-
-
-
-
-

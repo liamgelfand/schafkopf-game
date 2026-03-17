@@ -16,7 +16,37 @@
     "bid": "叫牌",
     "makeBid": "叫牌",
     "yourTurn": "您的回合",
-    "waiting": "等待中..."
+    "waiting": "等待中...",
+    "backToHome": "返回首页",
+    "loading": "加载中...",
+    "creating": "创建中...",
+    "starting": "启动中...",
+    "join": "加入",
+    "leave": "离开",
+    "leaveRoom": "离开房间",
+    "players": "玩家",
+    "gameRoom": "游戏房间",
+    "inProgress": "进行中",
+    "yes": "是",
+    "no": "否"
+  },
+  "home": {
+    "title": "欢迎来到Schafkopf",
+    "subtitle": "传统德国纸牌游戏",
+    "welcomeMessage": "请登录或注册以开始游戏",
+    "loginRegister": "登录 / 注册"
+  },
+  "login": {
+    "title": "Schafkopf",
+    "login": "登录",
+    "register": "注册",
+    "username": "用户名",
+    "email": "电子邮件",
+    "password": "密码",
+    "submit": "提交",
+    "authenticationFailed": "身份验证失败",
+    "errorOccurred": "发生错误",
+    "noAccessToken": "未收到访问令牌"
   },
   "game": {
     "title": "Schafkopf",
@@ -32,6 +62,8 @@
     "contract": "合约: {{contract}}",
     "trick": "墩 {{current}}/8",
     "noCardsPlayed": "尚未出牌",
+    "notLoggedIn": "未登录",
+    "noRoomId": "未提供房间ID",
     "contracts": {
       "rufer": "Rufer",
       "wenz": "Wenz",
@@ -42,22 +74,68 @@
       "gras": "草",
       "herz": "红心",
       "schellen": "铃铛"
-    }
+    },
+    "trumpSuits": {
+      "eichel": "橡子",
+      "gras": "草",
+      "herz": "红心",
+      "schellen": "铃铛"
+    },
+    "calledAce": "叫牌A",
+    "selectTrump": "选择王牌花色",
+    "selectCalledAce": "选择叫牌A"
   },
   "lobby": {
     "title": "游戏大厅",
-    "players": "玩家",
-    "waitingForPlayers": "等待玩家...",
-    "allReady": "所有玩家已准备！",
-    "gameStarting": "游戏开始中..."
+    "gameRoom": "游戏房间",
+    "joinOrCreate": "加入或创建游戏房间",
+    "createNewRoom": "创建新房间",
+    "createPublicRoom": "创建公共房间",
+    "createPrivateRoom": "创建私人房间",
+    "joinByCode": "通过房间代码加入",
+    "cancel": "取消",
+    "enterRoomCode": "输入房间代码",
+    "roomCodeRequired": "需要房间代码",
+    "roomCode": "房间代码",
+    "copyCode": "复制",
+    "roomCodeCopied": "房间代码已复制到剪贴板！",
+    "shareCodeHint": "与朋友分享此代码以让他们加入",
+    "availableRooms": "可用房间",
+    "noRoomsAvailable": "没有可用房间。创建一个开始！",
+    "waitingForPlayer": "等待玩家...",
+    "startGame": "开始游戏",
+    "room": "房间"
   },
   "dashboard": {
-    "title": "欢迎来到Schafkopf！",
-    "quickActions": "快速操作",
+    "title": "Schafkopf仪表板",
+    "quickStart": "快速开始",
+    "createNewGame": "创建新游戏",
+    "browseAllGames": "浏览所有游戏",
     "activeLobbies": "活跃大厅",
-    "noLobbies": "没有活跃大厅。创建一个！",
-    "refresh": "刷新大厅",
-    "yourGame": "您的游戏"
+    "noActiveLobbies": "没有活跃大厅。创建一个开始！",
+    "quickLinks": "快速链接",
+    "viewProfile": "查看您的个人资料和统计信息",
+    "viewStats": "查看您的游戏统计信息",
+    "learnToPlay": "学习如何游戏",
+    "failedToCreateRoom": "创建房间失败",
+    "failedToJoinRoom": "加入房间失败"
+  },
+  "settings": {
+    "title": "设置",
+    "appearance": "外观",
+    "theme": "主题",
+    "light": "浅色",
+    "dark": "深色",
+    "gamePreferences": "游戏偏好",
+    "cardSort": "卡牌排序",
+    "bySuit": "按花色",
+    "byRank": "按等级",
+    "trumpsFirst": "王牌优先",
+    "autoSortCards": "自动排序卡牌",
+    "notifications": "通知",
+    "soundEnabled": "声音已启用",
+    "notificationsEnabled": "通知已启用",
+    "language": "语言"
   },
   "errors": {
     "notLoggedIn": "未登录",
@@ -65,11 +143,11 @@
     "notYourTurn": "不是您的回合",
     "invalidBid": "无效叫牌",
     "bidTooLow": "您的叫牌太低",
-    "cannotPass": "无法过牌"
+    "cannotPass": "无法过牌",
+    "failedToCreateRoom": "创建房间失败",
+    "failedToJoinRoom": "加入房间失败",
+    "failedToSetReady": "设置准备状态失败",
+    "failedToStartGame": "启动游戏失败",
+    "failedToLeaveRoom": "离开房间失败"
   }
 }
-
-
-
-
-
